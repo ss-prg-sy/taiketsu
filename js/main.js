@@ -1,6 +1,12 @@
 // 起動と操作：毎フレームの描画ループ・タップ/キー操作・ボタン
 
+// スマホの細かい画面でもくっきり描く：画面のドットの細かさ（DPR）に合わせて内部の解像度を上げる
+const DPR = Math.min(3, window.devicePixelRatio || 1);
+cv.width = W * DPR;
+cv.height = H * DPR;
+
 function frame(now) {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);   // 描くときは今までどおり 420×640 の座標で考える
   update(now);
   const wide = state === 'result' && play && now >= wideAt;
   if (wide) {
