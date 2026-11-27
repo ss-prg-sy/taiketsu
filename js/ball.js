@@ -9,7 +9,8 @@ function ballPos(p) {
   const s = 2 / (20 - 18 * q);        // 遠くは小さく、近くは大きく
   // ねらったコースに向かってまっすぐ進む線
   const hs = pitHand() === 'L' ? -1 : 1;              // 左投げは左右が逆
-  const relX = hs > 0 ? REL.x : 2 * 216 - REL.x;       // ボールを離す位置も逆の手
+  // 投手はこちらを向いているので、右投げの右手は画面の左側に見える
+  const relX = hs > 0 ? 2 * 216 - REL.x : REL.x;
   const hzx = (relX - aim.x * 0.1) / 0.9;
   const hzy = (REL.y - aim.y * 0.1) / 0.9;
   let x = hzx + (aim.x - hzx) * s;

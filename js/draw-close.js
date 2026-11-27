@@ -167,9 +167,10 @@ function drawRunners() {}
 
 // 投手（正面から見たフラットな人）
 function drawPitcher(now) {
-  // 左投げは左右反転して描く
+  // 投手はこちらを向いているので、右投げは投げる腕が画面の左側に見える（絵を左右反転）
+  // ※ drawPitcherBody は「投げる腕が画面の右」の形で描いてある＝左投げの見え方
   ctx.save();
-  if (pitHand() === 'L') { ctx.translate(432, 0); ctx.scale(-1, 1); }
+  if (pitHand() === 'R') { ctx.translate(432, 0); ctx.scale(-1, 1); }
   drawPitcherBody(now);
   ctx.restore();
   tag(handName(pitHand(), '投げ'), 256, MOUND_Y - 30);
