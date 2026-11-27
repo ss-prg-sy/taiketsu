@@ -27,10 +27,12 @@ function fieldOutline() {
 function drawWideField() {
   // 空とスタンド
   let g = ctx.createLinearGradient(0, 0, 0, 110);
-  g.addColorStop(0, '#081233'); g.addColorStop(1, '#23447f');
+  g.addColorStop(0, COL.skyTop); g.addColorStop(1, COL.skyBottom);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, 110);
+  ctx.fillStyle = COL.cloud;
+  for (const c of CLOUDS) for (const [x, y, w, h] of c) ctx.fillRect(x, y - 85, w, h);
   g = ctx.createLinearGradient(0, 96, 0, H);
-  g.addColorStop(0, '#2a2e48'); g.addColorStop(1, '#4a4f6e');
+  g.addColorStop(0, COL.stand1); g.addColorStop(1, COL.stand2);
   ctx.fillStyle = g; ctx.fillRect(0, 96, W, H - 96);
   for (const c of crowdW) { ctx.fillStyle = c.col; ctx.fillRect(c.x, c.y, 2.5, 2.5); }
 
@@ -168,4 +170,54 @@ function drawWide(now) {
   const g = wp(b.X, b.Y), p = wp(b.X, b.Y, b.Z);
   drawShadow(g.x, g.y, 2.5 + b.Z * 0.03, 0.35);
   drawBall(p.x, p.y, 2.8 + b.Z * 0.06);
+
+  if (play.kind === 'HR') drawHomeRunShow(tw);
+}
+
+// ホームランの演出：ボールがスタンドに入った瞬間に画面が光って、花火が上がる
+const FW_COLORS = ['#ffd23f', '#ff6b6b', '#7fd6ff', '#9dff8a', '#ff9df0', '#ffffff'];
+function drawHomeRunShow(tw) {
+  const land = play.segs[0].dur;
+  const dt0 = tw - land;
+  if (dt0 < 0) return;
+  // 光る
+  if (dt0 < 0.35) {
+    ctx.fillStyle = `rgba(255,250,220,${0.6 * (1 - dt0 / 0.35)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+  // 花火（最初に位置と色を決めておく）
+  if (!play.fireworks) {
+    play.fireworks = [];
+    for (let i = 0; i < 12; i++) {
+      play.fireworks.push({
+        t: i * 0.2 + Math.random() * 0.15,
+        x: 30 + Math.random() * 360, y: 40 + Math.random() * 260,
+        col: FW_COLORS[i % FW_COLORS.length], n: 26 + Math.floor(Math.random() * 10), R: 70 + Math.random() * 40,
+      });
+    }
+  }
+  ctx.lineCap = 'round';
+  for (const f of play.fireworks) {
+    const dt = dt0 - f.t;
+    if (dt < 0 || dt > 1.4) continue;
+    const k = dt / 1.4;
+    const d = f.R * (1 - (1 - k) * (1 - k));
+    ctx.globalAlpha = Math.min(1, 1.6 * (1 - k));
+    ctx.strokeStyle = f.col; ctx.lineWidth = 3.5 * (1 - k * 0.5);
+    for (let j = 0; j < f.n; j++) {
+      const a = j / f.n * Math.PI * 2;
+      const drop = 26 * k * k;
+      ctx.beginPath();
+      ctx.moveTo(f.x + Math.cos(a) * d * 0.7, f.y + Math.sin(a) * d * 0.7 + drop);
+      ctx.lineTo(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d + drop);
+      ctx.stroke();
+    }
+    // 真ん中のきらめき
+    if (k < 0.25) {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(f.x, f.y, 8 * (1 - k * 4), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.lineCap = 'butt';
 }
