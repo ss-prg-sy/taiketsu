@@ -7,7 +7,7 @@ const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 const W = 420, H = 640;
 // 対決の画面の配置（UIイメージの画像に合わせた位置）
-const REL = { x: 226, y: 224 };         // ピッチャーがボールを離す位置（投手の手）
+const REL = { x: 226, y: 204 };         // ピッチャーがボールを離す位置（腕を上げきった手）
 const HIT = { x: 217, y: 368 };         // ストライクゾーンの中心
 const ZW = 94, ZH = 100;                // ストライクゾーン（点線の枠）の大きさ
 const AIM_W = 126, AIM_H = 132;         // ボールゾーン（水色の枠）＝ねらえる範囲

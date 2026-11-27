@@ -135,19 +135,24 @@ function drawShadow(x, y, rx, alpha) {
   ctx.beginPath(); ctx.ellipse(x, y, rx, rx * 0.32, 0, 0, Math.PI * 2); ctx.fill();
 }
 
-// 小さい選手（外野手、引きのカメラの守備・ランナー）
+// 小さい選手（外野手、引きのカメラの守備・ランナー）：丸い頭・角の丸い体・先の丸い手足
 function drawPerson(x, y, s, team) {
   const c = TEAMS[team];
   drawShadow(x + 1 * s, y, 8 * s, 0.25);
-  ctx.fillStyle = '#f4eee6';
-  ctx.fillRect(x - 5 * s, y - 11 * s, 4 * s, 11 * s);
-  ctx.fillRect(x + 1 * s, y - 11 * s, 4 * s, 11 * s);
-  ctx.fillStyle = c.color;
-  ctx.fillRect(x - 6 * s, y - 25 * s, 12 * s, 15 * s);
-  ctx.fillStyle = COL.skin;
-  ctx.fillRect(x - 3.5 * s, y - 32 * s, 7 * s, 7 * s);
-  ctx.fillStyle = c.dark;
-  ctx.fillRect(x - 4.5 * s, y - 35 * s, 9 * s, 4 * s);
+  limb([[x - 2.6 * s, y - 12 * s], [x - 3 * s, y - 1.5 * s]], 4.2 * s, '#f4eee6');   // 足
+  limb([[x + 2.6 * s, y - 12 * s], [x + 3 * s, y - 1.5 * s]], 4.2 * s, '#f4eee6');
+  ctx.fillStyle = '#2b3150';
+  ctx.beginPath(); ctx.ellipse(x - 3.4 * s, y - 0.5 * s, 3 * s, 1.6 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x + 3.4 * s, y - 0.5 * s, 3 * s, 1.6 * s, 0, 0, Math.PI * 2); ctx.fill();
+  limb([[x - 6 * s, y - 22 * s], [x - 7.5 * s, y - 14 * s]], 3.2 * s, c.color);    // 腕
+  limb([[x + 6 * s, y - 22 * s], [x + 7.5 * s, y - 14 * s]], 3.2 * s, c.color);
+  ctx.fillStyle = c.color;                                                         // 体
+  ctx.beginPath(); ctx.roundRect(x - 6.5 * s, y - 25 * s, 13 * s, 15 * s, 4.5 * s); ctx.fill();
+  ctx.fillStyle = COL.skin;                                                        // 頭
+  ctx.beginPath(); ctx.arc(x, y - 29.5 * s, 4.6 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c.dark;                                                          // 帽子
+  ctx.beginPath(); ctx.arc(x, y - 30.5 * s, 4.8 * s, Math.PI, 0); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x + 3 * s, y - 30.5 * s, 3.2 * s, 1.1 * s, 0, 0, Math.PI * 2); ctx.fill();
 }
 
 // 外野手（画像どおり左右の2人）
@@ -180,33 +185,56 @@ function tag(text, x, y) {
   ctx.fillText(text, x, y + 0.5);
 }
 
+// なめらかな動き（ゆっくり始まって、すっと止まる）
+function ease(k) { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); }
+
+// 投手のフォーム：足を上げる → 腕を後ろから大きく回す → 投げて体の前に振り抜く
+function pitcherPose(now) {
+  let lift = 0, arm = 1.9, lean = 0;        // arm＝投げる腕の角度（下向き1.9 → 上-1.2 → 振り抜き2.7）
+  if (state === 'windup') {
+    const k = Math.max(0, (now - phaseStart) / WINDUP);
+    lift = ease(k / 0.55) * (1 - ease((k - 0.6) / 0.4));         // 足を上げて、踏み出す
+    arm = 1.9 + (-1.2 - 1.9) * ease((k - 0.35) / 0.65);         // 腕を回し上げる
+  } else if (state === 'pitch' || (state === 'result' && !play)) {
+    const t = (now - phaseStart) / 160;                         // 投げた直後の振り抜き
+    const k = state === 'pitch' ? ease(t) : 1;
+    arm = -1.2 + (2.7 + 1.2) * k;
+    lean = k;
+  }
+  return { lift, arm, lean };
+}
+
 function drawPitcherBody(now) {
   const x = 216, y = MOUND_Y, c = TEAMS[fieldTeam()];
-  let armUp = 0;
-  if (state === 'windup') armUp = Math.min(1, Math.max(0, (now - phaseStart) / WINDUP));
-  drawShadow(x + 3, y - 1, 13, 0.25);
-  // 足とズボン
-  ctx.fillStyle = '#f4eee6';
-  ctx.fillRect(x - 6, y - 26, 5, 24); ctx.fillRect(x + 1, y - 26, 5, 24);
+  const { lift, arm, lean } = pitcherPose(now);
+  const bx = x + lean * 2, by = y + lean * 2;      // 振り抜くと少し前かがみ
+  drawShadow(x + 3, y - 1, 14, 0.25);
+  // 足（グラブ側の足を上げる）
+  limb([[x + 3, y - 26], [x + 5, y - 13], [x + 4, y - 3]], 6, '#f4eee6');
+  limb([[x - 3, y - 26], [x - 8 - lift * 4, y - 15 - lift * 10], [x - 5 - lift * 2, y - 3 - lift * 14]], 6, '#f4eee6');
   ctx.fillStyle = '#26305a';
-  ctx.fillRect(x - 7, y - 4, 7, 4); ctx.fillRect(x + 1, y - 4, 7, 4);
+  ctx.beginPath(); ctx.ellipse(x + 5, y - 1.5, 4.5, 2.3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x - 6 - lift * 2, y - 1.5 - lift * 14, 4.5, 2.3, 0, 0, Math.PI * 2); ctx.fill();
   // 体
   ctx.fillStyle = c.color;
-  ctx.fillRect(x - 8, y - 46, 16, 21);
-  // グラブ（左手）
+  ctx.beginPath(); ctx.roundRect(bx - 8.5, by - 47, 17, 23, 6); ctx.fill();
+  ctx.fillStyle = c.dark; ctx.fillRect(bx - 8, by - 27, 16, 3);   // ベルト
+  // グラブの腕
+  limb([[bx - 7, by - 42], [bx - 13, by - 34], [bx - 9 + lift * 4, by - 32 - lift * 4]], 4.5, c.color);
   ctx.fillStyle = '#9a5a2e';
-  ctx.beginPath(); ctx.arc(x - 11, y - 30, 5, 0, Math.PI * 2); ctx.fill();
-  // 投げる腕（振りかぶると上がる）
-  const hx = x + 10, hy = y - 40 - armUp * 14;
-  ctx.strokeStyle = c.color; ctx.lineWidth = 4; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(x + 7, y - 42); ctx.lineTo(hx, hy); ctx.stroke();
-  ctx.lineCap = 'butt';
+  ctx.beginPath(); ctx.arc(bx - 9 + lift * 4, by - 32 - lift * 4, 5, 0, Math.PI * 2); ctx.fill();
+  // 投げる腕（肩を中心に回る、ひじで少し曲がる）
+  const sx = bx + 7, sy = by - 43;
+  const ex = sx + Math.cos(arm) * 8, ey = sy + Math.sin(arm) * 8;
+  const hx = ex + Math.cos(arm - 0.4) * 9, hy = ey + Math.sin(arm - 0.4) * 9;
+  limb([[sx, sy], [ex, ey]], 4.5, c.color);
+  limb([[ex, ey], [hx, hy]], 3.6, COL.skin);
   // 顔と帽子
   ctx.fillStyle = COL.skin;
-  ctx.fillRect(x - 5, y - 56, 10, 10);
+  ctx.beginPath(); ctx.arc(bx, by - 53, 6.2, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = c.color;
-  ctx.beginPath(); ctx.arc(x, y - 56, 6, Math.PI, 0); ctx.fill();
-  ctx.fillRect(x - 2, y - 57, 10, 2.5);
+  ctx.beginPath(); ctx.arc(bx, by - 55, 6.5, Math.PI, 0); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(bx + 4, by - 55, 5, 1.6, 0, 0, Math.PI * 2); ctx.fill();
   // 振りかぶり中のボール
   if (state === 'windup' && now >= phaseStart) {
     ctx.fillStyle = '#fff';
@@ -432,6 +460,7 @@ function drawBatterBody(now) {
   ctx.beginPath();
   ctx.moveTo(60, 340); ctx.lineTo(112 + twist, 332); ctx.lineTo(110 + twist * 0.6, 400); ctx.lineTo(64, 404);
   ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = c.color; ctx.lineWidth = 12; ctx.lineJoin = 'round'; ctx.stroke();   // 角を丸める
   ctx.fillStyle = c.dark;                               // ベルト
   ctx.fillRect(64, 396, 46 + twist * 0.6, 7);
   ctx.fillStyle = '#f4eee6';                            // 胸のライン
