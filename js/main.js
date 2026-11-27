@@ -12,25 +12,24 @@ function frame(now) {
   if (wide) {
     drawWide(now);
   } else {
-    // 対決中はピッチャー・バッター・ゾーンを大きく映す（下の真ん中を中心に拡大）
-    ctx.save();
-    ctx.translate(210, ZOOM_Y); ctx.scale(ZOOM, ZOOM); ctx.translate(-210, -ZOOM_Y);
+    // 対決の画面：奥から手前の順に描く
     drawField();
     drawFielders();
     drawRunners();
     drawPitcher(now);
     drawZone();
+    drawTrail();
     drawHistory();
     drawWaitSpot();
     drawAimGuide();
     drawPitchedBall(now);
-    drawFlight(now);
     drawBatter(now);
-    ctx.restore();
+    drawFlight(now);
+    drawHitFlash(now);
     drawVignette();
     drawCount();
   }
-  ctx.save(); ctx.translate(0, -28); drawBoard(); ctx.restore();   // スコアボードは上に詰める
+  drawBoard();
   drawMessage(now, wide);
   updateHint();
   requestAnimationFrame(frame);
@@ -44,7 +43,7 @@ function canvasPoint(e) {
   const r = cv.getBoundingClientRect();
   const sx = (e.clientX - r.left) * W / r.width, sy = (e.clientY - r.top) * H / r.height;
   // 拡大している分を元に戻す
-  return { x: (sx - 210) / ZOOM + 210, y: (sy - ZOOM_Y) / ZOOM + ZOOM_Y };
+  return { x: sx, y: sy };
 }
 
 cv.addEventListener('pointerdown', e => {

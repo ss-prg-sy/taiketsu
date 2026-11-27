@@ -13,11 +13,9 @@ let state = 'menu';
 
 let guess = -1;           // バッターの狙い球（-1＝狙わない）
 let waitSpot = null;      // バッターが待つコース（null＝張らない）
-const WAIT_NEAR = 24, WAIT_FAR = 48;   // この近さなら「読み的中」、これより遠いと「ハズレ」
+const WAIT_NEAR = 31, WAIT_FAR = 62;   // この近さなら「読み的中」、これより遠いと「ハズレ」
 let history = [];         // この打席で投げた球の記録
 const PCOLORS = ['#ffffff', '#4fd8ff', '#5ee07a', '#ff6bd5', '#ffa23f'];   // 球種ごとの色
-const ZOOM = 1.3;         // 対決中の拡大率
-const ZOOM_Y = 788;       // 拡大の中心（ゾーンが画面の真ん中あたりに来るように）
 let pitch = PITCHES[0], speed = 0, travel = 1000, phaseStart = 0;
 let aim = { x: HIT.x, y: HIT.y }, inZone = true, corner = false;
 let selPitch = 0;
@@ -25,6 +23,8 @@ let swingAt = null, swungMiss = false, cpuSwingAt = null;
 let flight = null;
 let msg = '', msgSub = '', msgColor = '#fff', resultDur = 1500;
 let hover = null;
+let lastTrail = null;     // 直前の投球の通り道
+let hitFlash = null;      // 打った瞬間の光
 
 // 打ったあとの「引きのカメラ」用
 let play = null;          // 打球・守備・ランナーの動き

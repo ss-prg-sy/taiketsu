@@ -124,7 +124,7 @@ function chooseAim(x, y) {
   x = Math.max(HIT.x - AIM_W / 2, Math.min(HIT.x + AIM_W / 2, x));
   y = Math.max(HIT.y - AIM_H / 2, Math.min(HIT.y + AIM_H / 2, y));
   // 少しだけ狙いがズレる（コントロールのブレ）
-  aim = { x: x + gauss() * 4, y: y + gauss() * 4 };
+  aim = { x: x + gauss() * 5, y: y + gauss() * 5 };
   pitch = PITCHES[selPitch];
   setPitchSpeed();
   computeZone();
@@ -168,6 +168,7 @@ function computeZone() {
 function startWindup() {
   state = 'windup';
   phaseStart = performance.now() + (humanPitches() ? 0 : rand(0, 400));
+  lastTrail = null;
   if (!humanBats()) { guess = cpuGuess(); cpuDecideSwing(); }
   history.push({ x: aim.x, y: aim.y, pi: PITCHES.indexOf(pitch), done: false });
 }
@@ -207,6 +208,7 @@ function doSwing(t) {
   const eff = Math.max(0, Math.min(148, contact + 15 * (inZone ? 0 : 1) + guessBonus()));
   const kind = battedBall(eff);
   const from = ballPos((t - phaseStart) / travel);
+  hitFlash = { t: performance.now(), x: from.x, y: from.y, big: kind === 'HR' || kind === '2B' || kind === '3B' };
   if (kind === 'FOUL') {
     startFlight(from, diff, 'FOUL');
     if (strikes < 2) strikes++;
