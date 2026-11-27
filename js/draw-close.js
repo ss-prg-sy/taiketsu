@@ -270,8 +270,27 @@ function drawZone() {
 
 // コースを選ぶときのカーソル
 function drawAimGuide() {
-  if (state !== 'aim' && state !== 'guess') return;
-  if (hover && Math.abs(hover.x - HIT.x) <= AIM_W / 2 + 10 && Math.abs(hover.y - HIT.y) <= AIM_H / 2 + 10) {
+  if (state !== 'aim' && state !== 'guess') { dragAim = null; return; }
+  if (dragAim) {
+    // 指でなぞっている途中：印（＋指からの線）と、離すとどうなるかを出す
+    const inside = insideAimArea(dragAim);
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(dragAim.fx, dragAim.fy); ctx.lineTo(dragAim.x, dragAim.y + 16); ctx.stroke();
+    ctx.setLineDash([]);
+    const col = inside ? '#ffd23f' : '#ff8080';
+    ctx.strokeStyle = col; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(dragAim.x, dragAim.y, 14, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(dragAim.x - 22, dragAim.y); ctx.lineTo(dragAim.x + 22, dragAim.y);
+    ctx.moveTo(dragAim.x, dragAim.y - 22); ctx.lineTo(dragAim.x, dragAim.y + 22);
+    ctx.stroke();
+    const text = state === 'aim'
+      ? (inside ? '離すと投げる' : '枠の外：離すと取り消し')
+      : (inside ? '離すとここで待つ' : '枠の外：コースは張らない');
+    tag(text, Math.max(70, Math.min(W - 70, dragAim.x)), dragAim.y - 32);
+    return;
+  }
+  if (hover && insideAimArea(hover)) {
     ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.arc(hover.x, hover.y, 12, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath();

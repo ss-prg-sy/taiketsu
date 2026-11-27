@@ -23,6 +23,7 @@ let swingAt = null, swungMiss = false, cpuSwingAt = null;
 let flight = null;
 let msg = '', msgSub = '', msgColor = '#fff', resultDur = 1500;
 let hover = null;
+let dragAim = null;       // コースを指でなぞっている途中（離すまで決まらない）
 
 // 右投げ・左投げ、右打ち・左打ち（'R' か 'L'）
 let pitcherHand = ['R', 'R'];   // チームごとの投手（メニューで選ぶ）

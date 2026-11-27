@@ -55,7 +55,7 @@ function openGuess() {
   state = 'guess';
   updateHandBtn();
   document.getElementById('guessLabel').textContent =
-    `${mode === 2 ? teamName(batTeam()) + '：' : ''}① 狙い球 → ② 待つコースをタップ（枠の外＝コースは張らない）`;
+    `${mode === 2 ? teamName(batTeam()) + '：' : ''}① 狙い球 → ② 待つコースをなぞって離す（枠の外＝張らない）`;
   show('guessPanel', true);
 }
 

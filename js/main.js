@@ -42,22 +42,43 @@ function frame(now) {
 function canvasPoint(e) {
   const r = cv.getBoundingClientRect();
   const sx = (e.clientX - r.left) * W / r.width, sy = (e.clientY - r.top) * H / r.height;
-  // 拡大している分を元に戻す
   return { x: sx, y: sy };
+}
+
+// コース選び：指で触れてなぞる → 離したところで決定（触れた瞬間には決まらない）
+// 指で印が隠れないように、指で触っているときは印を指の少し上に出す
+const FINGER_OFFSET = 45;
+function setDrag(e) {
+  const f = canvasPoint(e);
+  const off = e.pointerType === 'mouse' ? 0 : FINGER_OFFSET;
+  dragAim = { x: f.x, y: f.y - off, fx: f.x, fy: f.y };
+}
+function insideAimArea(p) {
+  return Math.abs(p.x - HIT.x) <= AIM_W / 2 + 10 && Math.abs(p.y - HIT.y) <= AIM_H / 2 + 10;
 }
 
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
   if (state === 'aim' || state === 'guess') {
-    const p = canvasPoint(e);
-    const inside = Math.abs(p.x - HIT.x) <= AIM_W / 2 + 10 && Math.abs(p.y - HIT.y) <= AIM_H / 2 + 10;
-    if (state === 'aim') { if (inside) chooseAim(p.x, p.y); }
-    else startBatting(inside ? { x: p.x, y: p.y } : null);
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}   // 指が画面の外に出ても追いかける
+    setDrag(e);
     return;
   }
-  humanSwing();
+  humanSwing();     // スイングは触れた瞬間（タイミングがずれないように）
 });
-cv.addEventListener('pointermove', e => { hover = canvasPoint(e); });
+cv.addEventListener('pointermove', e => {
+  hover = canvasPoint(e);
+  if (dragAim) setDrag(e);
+});
+cv.addEventListener('pointerup', e => {
+  if (!dragAim) return;
+  const p = { x: dragAim.x, y: dragAim.y };
+  dragAim = null;
+  const inside = insideAimArea(p);
+  if (state === 'aim') { if (inside) chooseAim(p.x, p.y); }          // 枠の外で離したら取り消し
+  else if (state === 'guess') startBatting(inside ? p : null);        // 枠の外＝コースは張らない
+});
+cv.addEventListener('pointercancel', () => { dragAim = null; });
 cv.addEventListener('pointerleave', () => { hover = null; });
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); humanSwing(); }
