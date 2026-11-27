@@ -17,7 +17,7 @@
     </div>
 
     <div id="guessPanel" class="hidden panel2">
-      <div class="label" id="guessLabel"></div>
+      <div class="label"><span id="guessLabel"></span> <button id="handBtn" class="handBtn"></button></div>
       <div class="row" id="guessButtons"></div>
     </div>
   </div>
@@ -28,6 +28,10 @@
     <p><b>1アウト 2塁・3塁</b> から攻撃スタート！</p>
     <p>3アウトになるまで攻撃して、<br>相手より多く点を取ったら勝ち。</p>
     <p class="small">裏の攻撃で逆転したらサヨナラ。<br>同点なら延長（また1アウト2・3塁から）。</p>
+    <div class="hands">
+      <div class="handRow"><span class="team red">赤（あなた／P1）の投手</span><button data-team="0" data-hand="R" class="sel">右投げ</button><button data-team="0" data-hand="L">左投げ</button></div>
+      <div class="handRow"><span class="team blue">青（CPU／P2）の投手</span><button data-team="1" data-hand="R" class="sel">右投げ</button><button data-team="1" data-hand="L">左投げ</button></div>
+    </div>
     <button id="btn1p">1人で（vs CPU）</button>
     <button id="btn2p" class="sub">2人で（交代で操作）</button>
   </div>

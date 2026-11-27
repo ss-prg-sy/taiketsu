@@ -23,6 +23,13 @@ let swingAt = null, swungMiss = false, cpuSwingAt = null;
 let flight = null;
 let msg = '', msgSub = '', msgColor = '#fff', resultDur = 1500;
 let hover = null;
+
+// 右投げ・左投げ、右打ち・左打ち（'R' か 'L'）
+let pitcherHand = ['R', 'R'];   // チームごとの投手（メニューで選ぶ）
+let batHandPref = ['R', 'R'];   // 人が打つときの右左（前の打席の選び方を覚えておく）
+let batterHand = 'R';           // 今の打者
+function pitHand() { return pitcherHand[fieldTeam()]; }
+function handName(h, kind) { return (h === 'R' ? '右' : '左') + kind; }
 let lastTrail = null;     // 直前の投球の通り道
 let hitFlash = null;      // 打った瞬間の光
 

@@ -8,13 +8,15 @@ function ballPos(p) {
   const q = Math.min(p, 1);
   const s = 2 / (20 - 18 * q);        // 遠くは小さく、近くは大きく
   // ねらったコースに向かってまっすぐ進む線
-  const hzx = (REL.x - aim.x * 0.1) / 0.9;
+  const hs = pitHand() === 'L' ? -1 : 1;              // 左投げは左右が逆
+  const relX = hs > 0 ? REL.x : 2 * 216 - REL.x;       // ボールを離す位置も逆の手
+  const hzx = (relX - aim.x * 0.1) / 0.9;
   const hzy = (REL.y - aim.y * 0.1) / 0.9;
   let x = hzx + (aim.x - hzx) * s;
   let y = hzy + (aim.y - hzy) * s;
   // 変化球：最初は曲がる分だけ外れた方向に見えて、手元で狙いのコースに曲がってくる
   const bend = Math.pow(q, pitch.late);
-  x -= pitch.bx * BREAK_K * 3 * (1 - bend) * s;
+  x -= hs * pitch.bx * BREAK_K * 3 * (1 - bend) * s;
   y -= pitch.by * BREAK_K * 3 * (1 - bend) * s;
   y -= pitch.rise * Math.sin(Math.PI * q) * (1 - q);   // カーブは一度浮く
   let r = Math.max(1.8, BALL_R * s);

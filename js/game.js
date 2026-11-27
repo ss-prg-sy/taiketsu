@@ -16,6 +16,7 @@ function startHalf(h) {
   half = h;
   outs = 1; bases = [false, true, true]; balls = 0; strikes = 0;
   batterDone = false; flight = null; msg = ''; history = [];
+  newBatter();
   state = 'intro';
   show('panel', false); show('guessPanel', false);
   document.getElementById('introTitle').textContent = `${inning}回${half === 0 ? '表' : '裏'}${inning > 1 ? '（延長）' : ''}`;
@@ -52,6 +53,7 @@ function nextPitch() {
 
 function openGuess() {
   state = 'guess';
+  updateHandBtn();
   document.getElementById('guessLabel').textContent =
     `${mode === 2 ? teamName(batTeam()) + '：' : ''}① 狙い球 → ② 待つコースをタップ（枠の外＝コースは張らない）`;
   show('guessPanel', true);
@@ -98,8 +100,18 @@ function guessBonus() {
 }
 
 // 読みの当たり外れで「バットに当たる範囲」が変わる（ミリ秒）
+// 次の打者の右左を決める（CPUは投手と反対側が多め）
+function newBatter() {
+  if (humanBats()) { batterHand = batHandPref[batTeam()]; return; }
+  const opp = pitHand() === 'R' ? 'L' : 'R';
+  batterHand = Math.random() < 0.6 ? opp : pitHand();
+}
+
 function contactBonus() {
   let b = 0;
+  // 右左の相性：同じ側だと逃げていくスライダー・カーブが打ちにくい、反対側だと少し見やすい
+  if (batterHand === pitHand()) { if (pitch === PITCHES[1] || pitch === PITCHES[2]) b -= 12; }
+  else b += 6;
   if (guess >= 0) b += guess === PITCHES.indexOf(pitch) ? 15 : -35;
   const c = courseRead();
   if (c === 'hit') b += 15;
@@ -198,7 +210,8 @@ function doSwing(t) {
   if (swingAt !== null) return;
   swingAt = t;
   if (state === 'windup') { swungMiss = true; return; }   // 投げる前に振った
-  const diff = t - (phaseStart + travel);                // マイナス＝早い、プラス＝遅い
+  const diff = t - (phaseStart + travel);
+  const dirDiff = batterHand === 'L' ? -diff : diff;     // 左打ちは引っぱる方向が逆（ライト方向）                // マイナス＝早い、プラス＝遅い
   // ① 当たるかどうかはタイミングで決まる（ボール球・コーナーは少し当てにくい）
   //    読みが当たるとバットに当たる範囲が広がり、外れるとせまくなる（空振りしやすい）
   const contact = Math.abs(diff) + (inZone ? 0 : 30) + (corner ? 8 : 0);
@@ -210,12 +223,12 @@ function doSwing(t) {
   const from = ballPos((t - phaseStart) / travel);
   hitFlash = { t: performance.now(), x: from.x, y: from.y, big: kind === 'HR' || kind === '2B' || kind === '3B' };
   if (kind === 'FOUL') {
-    startFlight(from, diff, 'FOUL');
+    startFlight(from, dirDiff, 'FOUL');
     if (strikes < 2) strikes++;
     showResult('ファウル', diff < 0 ? '早い！' : '振り遅れ！', '#ddd', 1300);
     return;
   }
-  inPlay(kind, diff, from);
+  inPlay(kind, dirDiff, from);
 }
 
 // 当たりの良さ（ズレのミリ秒）から打球の種類を決める
@@ -456,7 +469,7 @@ function finishPlay() {
     startHalf(0);
     return;
   }
-  if (batterDone) { balls = 0; strikes = 0; batterDone = false; history = []; }
+  if (batterDone) { balls = 0; strikes = 0; batterDone = false; history = []; newBatter(); }
   nextPitch();
 }
 
@@ -472,4 +485,14 @@ function endGame(sayonara) {
   document.getElementById('endSub').textContent =
     (sayonara ? 'サヨナラ決着！' : '') + (inning > 1 ? `（${inning}回まで延長）` : '');
   show('end', true);
+}
+
+// 打者パネルの「右打ち⇄左打ち」ボタン
+function updateHandBtn() {
+  document.getElementById('handBtn').textContent = `${handName(batterHand, '打ち')} ⇄`;
+}
+function toggleBatterHand() {
+  batterHand = batterHand === 'R' ? 'L' : 'R';
+  batHandPref[batTeam()] = batterHand;
+  updateHandBtn();
 }

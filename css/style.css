@@ -54,3 +54,13 @@ p { margin: 4px 0; line-height: 1.7; }
   border: 0; border-bottom: 4px solid transparent; border-radius: 10px; background: #2c3260; color: #fff; cursor: pointer;
 }
 #panel button.sel, #guessPanel button.sel { background: #ffd23f; color: #222; font-weight: bold; }
+/* 右投げ・左投げの選択（メニュー） */
+.hands { margin: 10px 0 2px; display: flex; flex-direction: column; gap: 6px; }
+.handRow { display: flex; align-items: center; gap: 6px; justify-content: center; font-size: 13px; }
+.handRow .team { min-width: 150px; text-align: right; }
+.handRow .team.red { color: #ff8a84; } .handRow .team.blue { color: #8ab8ff; }
+.overlay .handRow button { min-width: 0; margin: 0; padding: 6px 12px; font-size: 13px; background: #2c3260; color: #fff; }
+.overlay .handRow button.sel { background: #ffd23f; color: #222; }
+/* 右打ち・左打ちの切り替え（打者のパネル） */
+#guessPanel .label { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; }
+#guessPanel button.handBtn { flex: none; font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #c9d3ff; color: #161a36; font-weight: bold; border: 0; }

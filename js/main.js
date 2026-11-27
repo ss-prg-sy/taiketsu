@@ -96,4 +96,12 @@ selectGuess(-1);
 document.getElementById('retryBtn').addEventListener('click', () => startGame(mode));
 document.getElementById('menuBtn').addEventListener('click', () => { show('end', false); state = 'menu'; show('menu', true); });
 
+// 右投げ・左投げ（メニュー）と、右打ち・左打ち（打者パネル）
+document.querySelectorAll('.handRow button').forEach(b => b.addEventListener('click', () => {
+  const t = +b.dataset.team;
+  pitcherHand[t] = b.dataset.hand;
+  document.querySelectorAll(`.handRow button[data-team="${t}"]`).forEach(x => x.classList.toggle('sel', x === b));
+}));
+document.getElementById('handBtn').addEventListener('click', toggleBatterHand);
+
 requestAnimationFrame(frame);

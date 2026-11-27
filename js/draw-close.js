@@ -162,6 +162,25 @@ function drawRunners() {}
 
 // 投手（正面から見たフラットな人）
 function drawPitcher(now) {
+  // 左投げは左右反転して描く
+  ctx.save();
+  if (pitHand() === 'L') { ctx.translate(432, 0); ctx.scale(-1, 1); }
+  drawPitcherBody(now);
+  ctx.restore();
+  tag(handName(pitHand(), '投げ'), 256, MOUND_Y - 30);
+}
+
+// 小さい名札（右投げ・左打ちなど）
+function tag(text, x, y) {
+  ctx.font = 'bold 10px system-ui, sans-serif';
+  const w = ctx.measureText(text).width + 10;
+  ctx.fillStyle = 'rgba(22,26,54,.8)';
+  ctx.beginPath(); ctx.roundRect(x - w / 2, y - 8, w, 16, 8); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y + 0.5);
+}
+
+function drawPitcherBody(now) {
   const x = 216, y = MOUND_Y, c = TEAMS[fieldTeam()];
   let armUp = 0;
   if (state === 'windup') armUp = Math.min(1, Math.max(0, (now - phaseStart) / WINDUP));
@@ -285,7 +304,7 @@ function drawWaitSpot() {
 // 右のカウント表示
 function drawCount() {
   if (state === 'menu') return;
-  const x = 307, y = 322, w = 86, h = 72;
+  const x = batterHand === 'L' ? 27 : 307, y = 322, w = 86, h = 72;   // 打者と重ならない側に出す
   ctx.fillStyle = COL.panel;
   ctx.beginPath(); ctx.roundRect(x, y, w, h, 9); ctx.fill();
   ctx.strokeStyle = COL.panelEdge; ctx.lineWidth = 1.5; ctx.stroke();
@@ -377,6 +396,15 @@ function limb(points, width, color) {
 }
 
 function drawBatter(now) {
+  // 左打ちはゾーンの真ん中を軸に左右反転（ホームベースの右側に立つ）
+  ctx.save();
+  if (batterHand === 'L') { ctx.translate(HIT.x * 2, 0); ctx.scale(-1, 1); }
+  drawBatterBody(now);
+  ctx.restore();
+  tag(handName(batterHand, '打ち'), batterHand === 'L' ? HIT.x * 2 - 86 : 86, 538);
+}
+
+function drawBatterBody(now) {
   const c = TEAMS[batTeam()];
   const pose = swingPose(now);
   const t = swingAt === null ? 0 : Math.min(1, (now - swingAt) / 230);
