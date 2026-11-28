@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>1イニング対決</title>
-<link rel="stylesheet" href="css/style.css?v=15">
+<link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 <div id="wrap">
@@ -36,6 +36,37 @@
     </div>
     <button id="btn1p">1人で（vs CPU）</button>
     <button id="btn2p" class="sub">2人で（交代で操作）</button>
+    <button id="creditBtn" class="link">クレジット・使っている部品</button>
+  </div>
+
+  <div id="credits" class="overlay hidden">
+    <h1>クレジット</h1>
+    <div class="credits">
+      <h2>このゲームで使っている部品</h2>
+      <p><b>three.js</b>（r128）… 3D の球場や選手を表示する部品<br>
+        Copyright 2010-2021 Three.js Authors<br>
+        <a href="https://github.com/mrdoob/three.js/blob/r128/LICENSE" target="_blank" rel="noopener">MIT License</a>　/
+        <a href="https://threejs.org/" target="_blank" rel="noopener">threejs.org</a><br>
+        <span class="note">cdnjs（<a href="https://cdnjs.com/" target="_blank" rel="noopener">cdnjs.com</a>）から読み込んでいます</span></p>
+
+      <h2>作るときだけ使っている道具</h2>
+      <p><b>TypeScript</b> … コードの書きまちがいを探すチェックに使用（ゲームの中には入っていません）<br>
+        Copyright Microsoft Corporation　/
+        <a href="https://github.com/microsoft/TypeScript/blob/main/LICENSE.txt" target="_blank" rel="noopener">Apache License 2.0</a></p>
+
+      <h2>絵・文字</h2>
+      <p>球場・選手・ボールなどの絵は、すべてプログラムで描いています（外から持ってきた画像や音は使っていません）。<br>
+        文字は、スマホやパソコンに入っている文字（フォント）を使っています。</p>
+
+      <h2>球種の特徴の数字について</h2>
+      <p>空振りの多さやゴロの割合は、野球で一般に知られている球種ごとの平均（主に MLB の投球データの集計）を参考にしています。<br>
+        <a href="https://baseball-analytica.com/posts/2023-07-21/hardest-pitch-to-hit/" target="_blank" rel="noopener">Baseball Analytica</a>　/
+        <a href="https://fantasy.fangraphs.com/modeling-swstr-and-gb-using-velocity-and-movement/" target="_blank" rel="noopener">FanGraphs</a></p>
+
+      <h2>そのほか</h2>
+      <p>チーム・選手はすべて架空です。実在の球団・選手・団体とは関係ありません。</p>
+    </div>
+    <button id="creditClose">閉じる</button>
   </div>
 
   <div id="intro" class="overlay hidden">
@@ -64,14 +95,14 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="js/config.js?v=15"></script>
-<script src="js/state.js?v=15"></script>
-<script src="js/game.js?v=15"></script>
-<script src="js/ball.js?v=15"></script>
-<script src="js/poses.js?v=15"></script>
-<script src="js/overlay.js?v=15"></script>
-<script src="js/world3d.js?v=15"></script>
-<script src="js/hud.js?v=15"></script>
-<script src="js/main.js?v=15"></script>
+<script src="js/config.js?v=16"></script>
+<script src="js/state.js?v=16"></script>
+<script src="js/game.js?v=16"></script>
+<script src="js/ball.js?v=16"></script>
+<script src="js/poses.js?v=16"></script>
+<script src="js/overlay.js?v=16"></script>
+<script src="js/world3d.js?v=16"></script>
+<script src="js/hud.js?v=16"></script>
+<script src="js/main.js?v=16"></script>
 </body>
 </html>

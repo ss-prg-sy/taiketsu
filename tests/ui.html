@@ -64,6 +64,16 @@ function check(name, ok, detail = '') { results.push({ name, ok, detail }); }
   g.addEventListener('error', e => err.push(e.message));
 
   checkButtons('メニュー');
+  check('メニューの「クレジット」を指で押せる', tapButton('creditBtn'));
+  await wait(200);
+  check('クレジットのページが開く（three.js のライセンスが書いてある）', (() => {
+    const c = frame.contentDocument.getElementById('credits');
+    return c.offsetParent !== null && c.textContent.includes('three.js') && c.textContent.includes('MIT License');
+  })());
+  checkButtons('クレジット');
+  check('クレジットの「閉じる」を指で押せる', tapButton('creditClose'));
+  await wait(200);
+  check('閉じたらメニューに戻る', frame.contentDocument.getElementById('menu').offsetParent !== null);
   check('メニューの「1人で」を指で押せる', tapButton('btn1p'));
   await wait(300);
   check('押したらイニングの始まりの画面になる', g.eval('state') === 'intro');

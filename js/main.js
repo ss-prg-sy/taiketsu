@@ -98,6 +98,8 @@ PITCHES.forEach((p, i) => {
 
 document.getElementById('btn1p').addEventListener('click', () => startGame(1));
 document.getElementById('btn2p').addEventListener('click', () => startGame(2));
+document.getElementById('creditBtn').addEventListener('click', () => { show('menu', false); show('credits', true); });
+document.getElementById('creditClose').addEventListener('click', () => { show('credits', false); show('menu', true); });
 document.getElementById('introBtn').addEventListener('click', () => { show('intro', false); nextPitch(); });
 document.getElementById('handoffBtn').addEventListener('click', () => { show('handoff', false); openGuess(); });
 

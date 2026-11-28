@@ -49,6 +49,14 @@ p { margin: 4px 0; line-height: 1.7; }
   min-width: 200px;
 }
 .overlay button.sub { background: #556; color: #fff; }
+/* メニューの「クレジット」は小さい文字のボタン */
+.overlay button.link { background: none; color: #c9d3ff; text-decoration: underline; font-size: 13px; font-weight: normal; min-width: 0; padding: 8px; margin-top: 10px; }
+/* クレジットのページ */
+.credits { text-align: left; font-size: 13px; line-height: 1.6; max-width: 360px; overflow-y: auto; max-height: calc(100% - 150px); padding: 4px 6px; }
+.credits h2 { font-size: 14px; color: #ffd23f; margin: 14px 0 4px; }
+.credits p { margin: 0 0 6px; }
+.credits a { color: #7fd6ff; }
+.credits .note { color: #aab; font-size: 12px; }
 #panel, #guessPanel { text-align: center; }
 .label { font-size: 13px; margin-bottom: 6px; color: #ffd23f; line-height: 1.4; }
 .pdesc { font-size: 12px; color: #c9d3ff; margin: -2px 0 6px; min-height: 1.4em; line-height: 1.4; }
