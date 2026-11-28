@@ -4,9 +4,7 @@
 function drawBoard() {
   if (state === 'menu') return;
   const x = 64, y = 33, w = 293, h = 62;
-  ctx.fillStyle = '#161a36';
-  ctx.beginPath(); ctx.roundRect(x, y, w, h, 12); ctx.fill();
-  ctx.strokeStyle = '#c9d3ff'; ctx.lineWidth = 2; ctx.stroke();
+  glossPanel(x, y, w, h, 12);
 
   ctx.textBaseline = 'middle';
   for (let t = 0; t < 2; t++) {
