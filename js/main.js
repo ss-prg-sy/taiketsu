@@ -5,28 +5,25 @@ const DPR = Math.min(3, window.devicePixelRatio || 1);
 cv.width = W * DPR;
 cv.height = H * DPR;
 
+resize3();
+
 function frame(now) {
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);   // 描くときは今までどおり 420×640 の座標で考える
   update(now);
+  render3D(now);                            // 下の画面：3D の球場と選手
+  // 上の画面：スコアボードや文字（420×640 の座標で描く。何も描かないところは透明）
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
   const wide = state === 'result' && play && now >= wideAt;
   if (wide) {
-    drawWide(now);
-  } else {
-    // 対決の画面：奥から手前の順に描く
-    drawField();
-    drawFielders();
-    drawRunners();
-    drawPitcher(now);
-    drawZone();
+    if (play.kind === 'HR') drawHomeRunShow((now - wideAt) / 1000);
+  } else if (state !== 'menu') {
+    drawZoneLabel();
     drawTrail();
     drawHistory();
     drawWaitSpot();
     drawAimGuide();
-    drawPitchedBall(now);
-    drawBatter(now);
-    drawFlight(now);
     drawHitFlash(now);
-    drawVignette();
+    drawHandTags();
     drawCount();
   }
   drawBoard();
@@ -51,7 +48,8 @@ const FINGER_OFFSET = 45;
 function setDrag(e) {
   const f = canvasPoint(e);
   const off = e.pointerType === 'mouse' ? 0 : FINGER_OFFSET;
-  dragAim = { x: f.x, y: f.y - off, fx: f.x, fy: f.y };
+  const z = screenToZonePx(f.x, f.y - off);           // 画面の点 → 3D のゾーンの上のどこか
+  dragAim = { x: z.x, y: z.y, sx: f.x, sy: f.y - off, fx: f.x, fy: f.y };
 }
 function insideAimArea(p) {
   return Math.abs(p.x - HIT.x) <= AIM_W / 2 + 10 && Math.abs(p.y - HIT.y) <= AIM_H / 2 + 10;

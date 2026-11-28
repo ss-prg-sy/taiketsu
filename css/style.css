@@ -20,6 +20,8 @@ body {
   width: min(100vw, 420px, calc((100dvh - 112px) * 0.65625));
 }
 canvas { display: block; width: 100%; height: auto; cursor: pointer; touch-action: none; }
+#c { position: relative; z-index: 1; }                 /* 上：スコアボードや文字（透明） */
+#c3 { position: absolute; left: 0; top: 0; z-index: 0; }  /* 下：3D の球場と選手 */
 #controls {
   min-height: 112px; box-sizing: border-box;
   background: #161a36; border-top: 2px solid #c9d3ff; padding: 8px 6px calc(8px + env(safe-area-inset-bottom));

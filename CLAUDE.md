@@ -13,7 +13,10 @@
 
 ## ファイルの役割
 - `js/config.js` 設定 / `js/state.js` 状態 / `js/game.js` 試合の流れと判定 / `js/ball.js` ボールの動き
-- `js/draw-close.js` 対決の画面 / `js/players.js` 投手と打者（骨組みのポーズで動かす） / `js/draw-wide.js` 引きのカメラ / `js/hud.js` スコアボードや文字 / `js/main.js` 起動と操作
+- `js/poses.js` 選手のポーズ（関節の位置。計算だけ） / `js/world3d.js` 3D の球場・選手・ボール・カメラ（three.js） / `js/overlay.js` 3D の上に重ねる絵（配球の点・待ちの輪・ねらいの印・カウント・花火）
+- `js/hud.js` スコアボードや文字 / `js/main.js` 起動と操作（タップの位置は 3D のゾーンの上の点に変換する）
+- 画面は2枚重ね：下が 3D（`#c3`）、上が透明な 2D（`#c`）。ゲームの中のコースは今までどおり「ゾーンの上の画面の座標」で、3D とは `zonePxToWorld` / `screenToZonePx` で行き来する
+- three.js は cdnjs から読み込む（r128）。チェック用に `js/three-global.d.ts` で THREE を宣言している
 - ふつうの `<script>` で読み込んでいて、ファイルどうしで変数を共有している（ダブルクリックでも開けるように）
 
 ## 気をつけること

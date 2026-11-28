@@ -223,7 +223,7 @@ function doSwing(t) {
   const eff = Math.max(0, Math.min(148, contact + 15 * (inZone ? 0 : 1) + guessBonus()));
   const kind = battedBall(eff);
   const from = ballPos((t - phaseStart) / travel);
-  hitFlash = { t: performance.now(), x: from.x, y: from.y, big: kind === 'HR' || kind === '2B' || kind === '3B' };
+  hitFlash = { t: performance.now(), x: from.x, y: from.y, p: (t - phaseStart) / travel, big: kind === 'HR' || kind === '2B' || kind === '3B' };
   if (kind === 'FOUL') {
     startFlight(from, dirDiff, 'FOUL');
     if (strikes < 2) strikes++;
@@ -392,7 +392,7 @@ function inPlay(kind, diff, from) {
   play = makePlay(kind, ang, ofi, ifi, mv, throws);
   const total = 300 + Math.max(play.ballEnd, play.runEnd) * 1000 + 1200;
   showResult(title, parts.join('　'), col, total);
-  wideAt = performance.now() + 300;             // 0.3秒後に引きのカメラへ
+  wideAt = performance.now();                   // 打ったらすぐ、カメラがボールを追いかける
   msgAt = wideAt + play.segs[0].dur * 1000;     // ボールが落ちた（捕った）ら文字を出す
 }
 
