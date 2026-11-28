@@ -13,7 +13,7 @@
 
 ## ファイルの役割
 - `js/config.js` 設定 / `js/state.js` 状態 / `js/game.js` 試合の流れと判定 / `js/ball.js` ボールの動き
-- `js/draw-close.js` 対決の画面 / `js/draw-wide.js` 引きのカメラ / `js/hud.js` スコアボードや文字 / `js/main.js` 起動と操作
+- `js/draw-close.js` 対決の画面 / `js/players.js` 投手と打者（骨組みのポーズで動かす） / `js/draw-wide.js` 引きのカメラ / `js/hud.js` スコアボードや文字 / `js/main.js` 起動と操作
 - ふつうの `<script>` で読み込んでいて、ファイルどうしで変数を共有している（ダブルクリックでも開けるように）
 
 ## 気をつけること
