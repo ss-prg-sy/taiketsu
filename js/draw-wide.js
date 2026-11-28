@@ -24,87 +24,149 @@ function fieldOutline() {
   return pts;
 }
 
+// 引きのカメラの背景も、対決の画面と同じ雰囲気で細かく描く。重いので最初に1回だけ描いてとっておく
+let wideBg = null;
 function drawWideField() {
-  // 空とスタンド
-  let g = ctx.createLinearGradient(0, 0, 0, 110);
-  g.addColorStop(0, COL.skyTop); g.addColorStop(1, COL.skyBottom);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 110);
-  ctx.fillStyle = COL.cloud;
-  for (const c of CLOUDS) for (const [x, y, w, h] of c) ctx.fillRect(x, y - 85, w, h);
-  g = ctx.createLinearGradient(0, 96, 0, H);
-  g.addColorStop(0, COL.stand1); g.addColorStop(1, COL.stand2);
-  ctx.fillStyle = g; ctx.fillRect(0, 96, W, H - 96);
-  for (const c of crowdW) { ctx.fillStyle = c.col; ctx.fillRect(c.x, c.y, 2.5, 2.5); }
+  if (!wideBg) wideBg = buildWideBackground();
+  ctx.drawImage(wideBg, 0, 0, W, H);
+}
 
-  // グラウンド（芝）
+function buildWideBackground() {
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const cnv = document.createElement('canvas');
+  cnv.width = W * dpr; cnv.height = H * dpr;
+  const g = cnv.getContext('2d');
+  g.scale(dpr, dpr);
+  const rnd = seeded(11);
+  const R = (a, b) => a + rnd() * (b - a);
+  const poly = pts => { g.beginPath(); pts.forEach(([X, Y], i) => { const p = wp(X, Y); i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); }); g.closePath(); };
   const outline = fieldOutline();
-  g = ctx.createLinearGradient(0, 180, 0, H);
-  g.addColorStop(0, '#2a7d40'); g.addColorStop(1, '#46b862');
-  ctx.fillStyle = g;
-  worldPoly(outline); ctx.fill();
-  // 芝刈りの縞
-  ctx.save();
-  worldPoly(outline); ctx.clip();
-  ctx.fillStyle = 'rgba(255,255,255,.05)';
-  for (let Y = -20; Y < 130; Y += 12) worldPoly([[-120, Y], [120, Y], [120, Y + 6], [-120, Y + 6]]), ctx.fill();
-  ctx.restore();
 
-  // 内野の土
-  const dirt = [];
-  for (let k = 0; k <= 24; k++) { const a = -1.1 + k * 2.2 / 24; dirt.push([29 * Math.sin(a), 18.4 + 29 * Math.cos(a)]); }
-  dirt.push([25, 16], [5, -4], [-5, -4], [-25, 16]);
-  ctx.fillStyle = '#c48a52';
-  worldPoly(dirt); ctx.fill();
-  // 内野の芝
-  ctx.fillStyle = '#3aa556';
-  worldPoly([[0, 4], [16.2, 19.4], [0, 35], [-16.2, 19.4]]); ctx.fill();
-  // マウンド・ホーム周り
-  ctx.fillStyle = '#c48a52';
-  worldPoly(circlePts(0, 18.4, 2.8)); ctx.fill();
-  worldPoly(circlePts(0, 0, 4)); ctx.fill();
+  // ---- 夜空 ----
+  let gr = g.createLinearGradient(0, 0, 0, 120);
+  gr.addColorStop(0, '#0a1236'); gr.addColorStop(0.55, '#2a2d78'); gr.addColorStop(1, '#7a4288');
+  g.fillStyle = gr; g.fillRect(0, 0, W, 120);
+  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(255,255,255,${R(0.2, 0.7)})`; g.fillRect(R(0, W), R(0, 70), 1.2, 1.2); }
+  for (let i = 0; i < 14; i++) {
+    const x = R(-20, W + 20), y = R(40, 100), rx = R(30, 70), ry = R(4, 9);
+    const c = g.createRadialGradient(x, y, 0, x, y, rx);
+    c.addColorStop(0, y > 75 ? 'rgba(214,104,150,.3)' : 'rgba(126,92,190,.28)'); c.addColorStop(1, 'rgba(0,0,0,0)');
+    g.save(); g.translate(x, y); g.scale(1, ry / rx); g.translate(-x, -y);
+    g.fillStyle = c; g.beginPath(); g.arc(x, y, rx, 0, Math.PI * 2); g.fill(); g.restore();
+  }
 
-  // ファウルライン
-  ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+  // ---- 観客席（グラウンドのまわり全部）----
+  gr = g.createLinearGradient(0, 100, 0, H);
+  gr.addColorStop(0, '#1a2456'); gr.addColorStop(1, '#2a3570');
+  g.fillStyle = gr; g.fillRect(0, 100, W, H - 100);
+  g.fillStyle = 'rgba(255,255,255,.04)';
+  for (let y = 104; y < H; y += 7) g.fillRect(0, y, W, 3);          // 席の段
+  const cols = ['#f2d8c0', '#e9b48f', '#f6f1e8', '#5f8fe8', '#f2c94a', '#d9536a', '#9fc0ff'];
+  for (let i = 0; i < 4200; i++) {
+    g.fillStyle = cols[Math.floor(rnd() * cols.length)];
+    g.globalAlpha = R(0.45, 0.95);
+    g.fillRect(R(0, W), R(102, H), 1.7, 1.9);
+  }
+  g.globalAlpha = 1;
+  g.fillStyle = '#121a3e'; g.fillRect(0, 98, W, 6);                 // 屋根の明かり
+  for (let x = 3; x < W; x += 8) { g.fillStyle = 'rgba(255,240,200,.9)'; g.fillRect(x, 100, 3, 1.5); }
+
+  // ---- グラウンドの影（観客席とのさかい）----
+  g.save();
+  g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 14;
+  g.fillStyle = '#2a6a32'; poly(outline); g.fill();
+  g.restore();
+
+  // ---- 芝（チェック柄＋質感）----
+  g.save();
+  poly(outline); g.clip();
+  gr = g.createLinearGradient(0, 120, 0, H);
+  gr.addColorStop(0, '#25602e'); gr.addColorStop(1, '#3d8f40');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(255,255,255,.06)';                            // 横のしま
+  for (let Y = -20; Y < 130; Y += 12) { poly([[-140, Y], [140, Y], [140, Y + 6], [-140, Y + 6]]); g.fill(); }
+  g.fillStyle = 'rgba(0,0,0,.07)';                                  // ホームから広がるしま
+  for (let k = -6; k < 6; k += 2) { poly([[0, 0], polar(160, k * 0.13), polar(160, (k + 1) * 0.13)]); g.fill(); }
+  for (let i = 0; i < 6000; i++) {                                 // 芝の質感
+    g.strokeStyle = rnd() < 0.5 ? 'rgba(0,0,0,.10)' : 'rgba(190,255,170,.07)';
+    g.lineWidth = 0.6;
+    const x = R(0, W), y = R(110, H);
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + R(-0.5, 0.5), y - 1.8); g.stroke();
+  }
+  const track = [];                                                // フェンス際の土
+  for (let k = 0; k <= 36; k++) { const a = -Math.PI / 4 + k * (Math.PI / 2) / 36; track.push(polar(fenceR(a), a)); }
+  for (let k = 36; k >= 0; k--) { const a = -Math.PI / 4 + k * (Math.PI / 2) / 36; track.push(polar(fenceR(a) - 5, a)); }
+  g.fillStyle = '#8a4a2c'; poly(track); g.fill();
+  g.restore();
+
+  // ---- 内野の土（ざらざら）----
+  const dirtShape = [];
+  for (let k = 0; k <= 24; k++) { const a = -1.1 + k * 2.2 / 24; dirtShape.push([29 * Math.sin(a), 18.4 + 29 * Math.cos(a)]); }
+  dirtShape.push([25, 16], [5, -4], [-5, -4], [-25, 16]);
+  g.save(); poly(dirtShape); g.clip();
+  gr = g.createLinearGradient(0, 380, 0, 620);
+  gr.addColorStop(0, '#8e4c2d'); gr.addColorStop(1, '#a05a35');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 2500; i++) {
+    g.fillStyle = rnd() < 0.5 ? 'rgba(60,20,8,.2)' : 'rgba(255,200,160,.12)';
+    g.fillRect(R(60, 360), R(380, 630), R(0.6, 1.4), R(0.6, 1.2));
+  }
+  g.restore();
+  g.save(); poly([[0, 4], [16.2, 19.4], [0, 35], [-16.2, 19.4]]); g.clip();   // 内野の芝
+  gr = g.createLinearGradient(0, 470, 0, 600);
+  gr.addColorStop(0, '#2f7434'); gr.addColorStop(1, '#3d8f40');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(255,255,255,.06)';
+  for (let Y = 4; Y < 36; Y += 6) { poly([[-30, Y], [30, Y], [30, Y + 3], [-30, Y + 3]]); g.fill(); }
+  g.restore();
+  g.fillStyle = '#a0592f'; poly(circlePts(0, 18.4, 2.8)); g.fill();         // マウンド
+  g.fillStyle = '#93502c'; poly(circlePts(0, 0, 4)); g.fill();              // ホームのまわり
+
+  // ---- 白線・フェンス・ポール・ベース ----
+  g.strokeStyle = 'rgba(245,242,235,.9)'; g.lineWidth = 2;
   for (const sgn of [-1, 1]) {
     const a = wp(0, 0), b = wp(sgn * 67.9, 67.9);
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
   }
-  // フェンス
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#14502b'; ctx.lineWidth = 7;
-  ctx.beginPath();
-  for (let k = 0; k <= 36; k++) {
-    const a = -Math.PI / 4 + k * (Math.PI / 2) / 36;
-    const [X, Y] = polar(fenceR(a), a); const p = wp(X, Y);
-    k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
-  }
-  ctx.stroke();
-  ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let k = 0; k <= 36; k++) {
-    const a = -Math.PI / 4 + k * (Math.PI / 2) / 36;
-    const [X, Y] = polar(fenceR(a), a); const p = wp(X, Y, 3);
-    k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
-  }
-  ctx.stroke();
-  // ポール
+  const fenceLine = (z, col, w) => {
+    g.strokeStyle = col; g.lineWidth = w; g.lineJoin = 'round';
+    g.beginPath();
+    for (let k = 0; k <= 36; k++) {
+      const a = -Math.PI / 4 + k * (Math.PI / 2) / 36;
+      const [X, Y] = polar(fenceR(a), a); const p = wp(X, Y, z);
+      k ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y);
+    }
+    g.stroke();
+  };
+  fenceLine(1.5, '#1d4f4a', 7);
+  fenceLine(3, '#e8c547', 1.8);
   for (const sgn of [-1, 1]) {
     const p = wp(sgn * 67.9, 67.9);
-    ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y - 30); ctx.stroke();
+    g.strokeStyle = '#f2d03b'; g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x, p.y - 32); g.stroke();
   }
-  // ベース
-  ctx.fillStyle = '#fff';
+  g.fillStyle = '#fbf8f2';
   for (let i = 1; i <= 3; i++) {
     const p = wp(BASES_W[i][0], BASES_W[i][1]);
-    ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1, 0.75); ctx.rotate(Math.PI / 4);
-    ctx.fillRect(-3.5, -3.5, 7, 7);
-    ctx.restore();
+    g.save(); g.translate(p.x, p.y); g.scale(1, 0.75); g.rotate(Math.PI / 4);
+    g.fillRect(-3.5, -3.5, 7, 7); g.restore();
   }
   const h = wp(0, 0);
-  ctx.beginPath();
-  ctx.moveTo(h.x - 4, h.y - 2); ctx.lineTo(h.x + 4, h.y - 2); ctx.lineTo(h.x + 4, h.y + 1); ctx.lineTo(h.x, h.y + 4); ctx.lineTo(h.x - 4, h.y + 1);
-  ctx.closePath(); ctx.fill();
+  g.beginPath();
+  g.moveTo(h.x - 4, h.y - 2); g.lineTo(h.x + 4, h.y - 2); g.lineTo(h.x + 4, h.y + 1); g.lineTo(h.x, h.y + 4); g.lineTo(h.x - 4, h.y + 1);
+  g.closePath(); g.fill();
+
+  // ---- 照明（上の両すみ、光のにじみ）----
+  for (const lx of [26, 394]) {
+    const glow = g.createRadialGradient(lx, 70, 0, lx, 70, 90);
+    glow.addColorStop(0, 'rgba(255,246,214,.6)'); glow.addColorStop(0.3, 'rgba(255,236,190,.22)'); glow.addColorStop(1, 'rgba(255,236,190,0)');
+    g.fillStyle = glow; g.beginPath(); g.arc(lx, 70, 90, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#dfe3f5'; g.fillRect(lx - 16, 62, 32, 16);
+    for (let r = 0; r < 2; r++) for (let k = 0; k < 5; k++) {
+      g.fillStyle = '#fffbe8'; g.beginPath(); g.arc(lx - 12 + k * 6, 66 + r * 7, 2.2, 0, Math.PI * 2); g.fill();
+    }
+  }
+  return cnv;
 }
 
 // その時刻のボールの位置（メートル）

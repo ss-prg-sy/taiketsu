@@ -272,7 +272,9 @@ function drawPerson(x, y, s, team) {
   ctx.beginPath(); ctx.ellipse(x + 3.4 * s, y - 0.5 * s, 3 * s, 1.6 * s, 0, 0, Math.PI * 2); ctx.fill();
   limb([[x - 6 * s, y - 22 * s], [x - 7.5 * s, y - 14 * s]], 3.2 * s, c.color);    // 腕
   limb([[x + 6 * s, y - 22 * s], [x + 7.5 * s, y - 14 * s]], 3.2 * s, c.color);
-  ctx.fillStyle = c.color;                                                         // 体
+  const bg = ctx.createLinearGradient(x - 6.5 * s, 0, x + 6.5 * s, 0);              // 体（左右で明るさを変えて立体に）
+  bg.addColorStop(0, c.light); bg.addColorStop(0.55, c.color); bg.addColorStop(1, c.dark);
+  ctx.fillStyle = bg;
   ctx.beginPath(); ctx.roundRect(x - 6.5 * s, y - 25 * s, 13 * s, 15 * s, 4.5 * s); ctx.fill();
   ctx.fillStyle = COL.skin;                                                        // 頭
   ctx.beginPath(); ctx.arc(x, y - 29.5 * s, 4.6 * s, 0, Math.PI * 2); ctx.fill();
