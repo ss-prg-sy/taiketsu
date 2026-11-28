@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ルールのテスト</title>
+<style>
+  body { font-family: system-ui, "Hiragino Sans", "Yu Gothic UI", sans-serif; margin: 16px; background: #f6f7fb; color: #1a1c2e; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  #summary { font-size: 18px; font-weight: bold; margin: 8px 0 14px; }
+  .ok { color: #11883a; } .ng { color: #c62828; }
+  table { border-collapse: collapse; width: 100%; max-width: 760px; background: #fff; }
+  td { border-bottom: 1px solid #e3e5ef; padding: 8px 10px; vertical-align: top; font-size: 14px; }
+  td.mark { width: 40px; text-align: center; font-size: 18px; }
+  .detail { color: #c62828; font-size: 12px; white-space: pre-wrap; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<h1>⚾ 1イニング対決：ルールのテスト</h1>
+<p>ゲームの中身（js/game.js など）を読み込んで、野球のルールどおりに動くかを自動でたしかめるページです。<br>
+コードを直したら、このページを開き直して全部 ✅ になるか見てください。</p>
+<div id="summary">テスト中…</div>
+<table id="results"></table>
+
+<!-- ゲームの部品が使う画面の要素（テストでは見えなくてよいので隠しておく） -->
+<div class="hidden">
+  <canvas id="c" width="420" height="640"></canvas>
+  <div id="panel"></div><div id="guessPanel"></div><div id="guessLabel"></div><div id="guessButtons"></div><button id="handBtn"></button>
+  <div id="intro"></div><div id="introTitle"></div><div id="introTeam"></div><div id="introRole"></div><div id="introScore"></div>
+  <div id="handoff"></div><div id="handoffTitle"></div>
+  <div id="end"></div><div id="endTitle"></div><div id="endScore"></div><div id="endSub"></div>
+</div>
+
+<!-- ゲームのルール部分だけを読み込む（描画や操作のファイルは読み込まない） -->
+<script src="../js/config.js"></script>
+<script src="../js/state.js"></script>
+<script src="../js/game.js"></script>
+<script src="../js/ball.js"></script>
+
+<script>
+// ---------------- テストの道具 ----------------
+const results = [];
+function test(name, fn) {
+  let ok = false, detail = '';
+  try {
+    const r = fn();
+    ok = r === true;
+    if (!ok) detail = typeof r === 'string' ? r : JSON.stringify(r);
+  } catch (e) {
+    detail = 'エラー: ' + e.message;
+  }
+  results.push({ name, ok, detail });
+}
+
+// 走者・アウトを決めてから、打球の結果を1回起こす
+function playFrom(b, o, kind, diff = rand(-150, 150)) {
+  bases = [...b]; outs = o; runs = [0, 0]; half = 0; inning = 1;
+  balls = 0; strikes = 0; state = 'pitch'; phaseStart = performance.now(); travel = 1000;
+  msg = ''; msgSub = ''; play = null; flight = null;
+  inPlay(kind, diff, { x: HIT.x, y: HIT.y, r: BALL_R });
+  return { r: runs[0], outs, bases: [...bases], sub: msgSub, title: msg };
+}
+const ALL_BASES = [];
+for (let m = 0; m < 8; m++) ALL_BASES.push([!!(m & 1), !!(m & 2), !!(m & 4)]);
+const KINDS = ['HR', '3B', '2B', '1B', 'FLY', 'POP', 'GO'];
+const N = 200;   // それぞれの場面を何回ためすか（ランダムな分かれ道を全部通るように多めに）
+const show_ = b => (b[0] ? '1' : '-') + (b[1] ? '2' : '-') + (b[2] ? '3' : '-');
+mode = 1;
+
+// ---------------- テスト ----------------
+
+test('攻撃は「1アウト 1塁・2塁」から始まる（表も裏も）', () => {
+  for (const h of [0, 1]) {
+    startHalf(h);
+    if (outs !== 1 || bases.join() !== 'true,true,false') return `${h ? '裏' : '表'}: アウト${outs} 走者${show_(bases)}`;
+  }
+  return true;
+});
+
+test('打った前とあとで、走者の数が合う（いなくなったり増えたりしない）', () => {
+  for (const b of ALL_BASES) for (let o = 0; o < 3; o++) for (const k of KINDS) for (let i = 0; i < N; i++) {
+    const res = playFrom(b, o, k);
+    if (res.outs >= 3) continue;                       // チェンジなら塁の数は関係ない
+    const before = b.filter(Boolean).length + 1;       // 走者＋打者
+    const after = res.bases.filter(Boolean).length + res.r + (res.outs - o);
+    if (before !== after) return `${k} 走者${show_(b)} ${o}アウト → 走者${show_(res.bases)} ${res.outs}アウト ${res.r}点`;
+  }
+  return true;
+});
+
+test('1塁が空いているとき、ゴロでゲッツーにならない（押し出しがないので）', () => {
+  for (const b of ALL_BASES) if (!b[0]) for (let o = 0; o < 2; o++) for (let i = 0; i < N; i++) {
+    const res = playFrom(b, o, 'GO');
+    if (res.outs - o >= 2) return `走者${show_(b)} ${o}アウトでゲッツー`;
+  }
+  return true;
+});
+
+test('1塁に走者がいれば、ゴロでゲッツーが起きることがある', () => {
+  let dp = 0;
+  for (let i = 0; i < N; i++) if (playFrom([true, true, false], 0, 'GO').sub.startsWith('ゲッツー')) dp++;
+  return dp > 0 ? true : 'ゲッツーが1回も出ない';
+});
+
+test('3つ目のアウトがゴロ・フライ・ポップフライなら、点は入らない', () => {
+  for (const b of ALL_BASES) for (let o = 0; o < 3; o++) for (const k of ['GO', 'FLY', 'POP']) for (let i = 0; i < N; i++) {
+    const res = playFrom(b, o, k);
+    if (res.outs >= 3 && res.r > 0) return `${k} 走者${show_(b)} ${o}アウト → ${res.r}点入った`;
+  }
+  return true;
+});
+
+test('アウトは3つより増えない', () => {
+  for (const b of ALL_BASES) for (let o = 0; o < 3; o++) for (const k of KINDS) for (let i = 0; i < N / 4; i++) {
+    const res = playFrom(b, o, k);
+    if (res.outs > 3) return `${k} 走者${show_(b)} ${o}アウト → ${res.outs}アウト`;
+  }
+  return true;
+});
+
+test('インフィールドフライは「0〜1アウトで1・2塁か満塁」のときだけ', () => {
+  for (const b of ALL_BASES) for (let o = 0; o < 3; o++) {
+    const res = playFrom(b, o, 'POP');
+    const should = o < 2 && b[0] && b[1];
+    const is = res.sub.startsWith('インフィールドフライ');
+    if (should !== is) return `走者${show_(b)} ${o}アウト：${is ? '宣告された' : '宣告されない'}`;
+  }
+  return true;
+});
+
+test('ゴロでホームのフォースアウトは満塁のときだけ、3塁は1・2塁が埋まっているときだけ', () => {
+  for (const b of ALL_BASES) for (let o = 0; o < 2; o++) for (let i = 0; i < N; i++) {
+    const res = playFrom(b, o, 'GO');
+    if (res.sub.startsWith('ホームでアウト') && !(b[0] && b[1] && b[2])) return `走者${show_(b)}でホームのフォースアウト`;
+    if (res.sub.startsWith('3塁でアウト') && !(b[0] && b[1])) return `走者${show_(b)}で3塁のフォースアウト`;
+  }
+  return true;
+});
+
+test('ヒットのとき、打者は1塁に残る', () => {
+  for (const b of ALL_BASES) for (let i = 0; i < N / 4; i++) {
+    const res = playFrom(b, 1, '1B');
+    if (!res.bases[0]) return `走者${show_(b)}：打者が1塁にいない`;
+  }
+  return true;
+});
+
+test('ホームランで、塁上の走者と打者が全員ホームインする', () => {
+  for (const b of ALL_BASES) {
+    const res = playFrom(b, 1, 'HR');
+    const want = b.filter(Boolean).length + 1;
+    if (res.r !== want || res.bases.some(Boolean)) return `走者${show_(b)}：${res.r}点（${want}点のはず）`;
+  }
+  return true;
+});
+
+test('フォアボールで、押し出される走者だけが1つ進む', () => {
+  const expect = {   // 走者 → フォアボールのあとの走者と点
+    '---': ['1--', 0], '1--': ['12-', 0], '-2-': ['12-', 0], '12-': ['123', 0],
+    '--3': ['1-3', 0], '1-3': ['123', 0], '-23': ['123', 0], '123': ['123', 1],
+  };
+  for (const b of ALL_BASES) {
+    bases = [...b]; runs = [0, 0]; half = 0; balls = 3; strikes = 0;
+    addBall();
+    const [wantBases, wantRuns] = expect[show_(b)];
+    if (show_(bases) !== wantBases || runs[0] !== wantRuns) return `走者${show_(b)} → ${show_(bases)} ${runs[0]}点（${wantBases} ${wantRuns}点のはず）`;
+  }
+  return true;
+});
+
+test('2ストライクからのストライクで三振（アウトが1つ増える）', () => {
+  outs = 1; strikes = 2; balls = 0; batterDone = false;
+  addStrike(true);
+  return outs === 2 && batterDone ? true : `アウト${outs}`;
+});
+
+test('裏に逆転したらサヨナラで試合終了', () => {
+  runs = [1, 1]; half = 1; inning = 1; mode = 1;
+  playFrom([true, true, false], 1, 'HR');
+  runs = [1, 4]; half = 1;
+  finishPlay();
+  return state === 'end' ? true : `状態が ${state}`;
+});
+
+test('裏が終わって同点なら延長（2回表から）', () => {
+  runs = [2, 2]; half = 1; inning = 1; outs = 3; batterDone = true; play = null;
+  finishPlay();
+  return inning === 2 && half === 0 && state === 'intro' ? true : `${inning}回 half=${half} 状態=${state}`;
+});
+
+test('右投げの球は画面の左側（投げる右手）から、左投げは右側から出る', () => {
+  pitch = PITCHES[0]; aim = { x: HIT.x, y: HIT.y }; half = 0;
+  pitcherHand = ['R', 'R'];
+  const rx = ballPos(0).x;
+  pitcherHand = ['L', 'L'];
+  const lx = ballPos(0).x;
+  pitcherHand = ['R', 'R'];
+  return rx < 216 && lx > 216 ? true : `右投げ x=${rx.toFixed(0)} 左投げ x=${lx.toFixed(0)}`;
+});
+
+test('読みが外れても、タイミングがぴったりならバットに当たる（空振りにならない）', () => {
+  for (let i = 0; i < N; i++) {
+    bases = [true, true, false]; outs = 1; runs = [0, 0]; half = 0; strikes = 0;
+    pitch = PITCHES[1]; aim = { x: HIT.x, y: HIT.y }; computeZone();
+    guess = 3; waitSpot = { x: HIT.x + 45, y: HIT.y - 45 };      // 球種もコースも外れ
+    state = 'pitch'; phaseStart = performance.now(); travel = 1000; swingAt = null; swungMiss = false;
+    doSwing(phaseStart + travel);                                   // ぴったりのタイミング
+    if (swungMiss) return '空振りになった';
+  }
+  return true;
+});
+
+test('読みが両方外れると、空振りが増える（三振が取れる）', () => {
+  let miss = 0;
+  for (let i = 0; i < 2000; i++) {
+    bases = [true, true, false]; outs = 1; runs = [0, 0]; half = 0; strikes = 0;
+    pitch = PITCHES[1]; aim = { x: HIT.x, y: HIT.y }; computeZone();
+    guess = 3; waitSpot = { x: HIT.x + 45, y: HIT.y - 45 };
+    state = 'pitch'; phaseStart = performance.now(); travel = 1000; swingAt = null; swungMiss = false;
+    doSwing(phaseStart + travel + gauss() * 80);
+    if (swungMiss) miss++;
+  }
+  const rate = miss / 2000;
+  return rate > 0.3 && rate < 0.8 ? true : `空振りの割合 ${(rate * 100).toFixed(0)}%`;
+});
+
+// ---------------- 結果を表示 ----------------
+const table = document.getElementById('results');
+for (const r of results) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="mark">${r.ok ? '✅' : '❌'}</td><td>${r.name}${r.ok ? '' : `<div class="detail">${r.detail}</div>`}</td>`;
+  table.appendChild(tr);
+}
+const fail = results.filter(r => !r.ok).length;
+const sum = document.getElementById('summary');
+sum.textContent = fail === 0 ? `全部 OK（${results.length}件）` : `${fail}件 失敗 ／ ${results.length}件`;
+sum.className = fail === 0 ? 'ok' : 'ng';
+window.TEST_RESULT = { total: results.length, fail, failures: results.filter(r => !r.ok) };
+</script>
+</body>
+</html>
