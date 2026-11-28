@@ -226,6 +226,77 @@ test('読みが両方外れると、空振りが増える（三振が取れる�
   return rate > 0.3 && rate < 0.8 ? true : `空振りの割合 ${(rate * 100).toFixed(0)}%`;
 });
 
+// 球種ごとに、ふつうに振ったとき（読みなし・ど真ん中・タイミングは人くらいのばらつき）の結果を数える
+function swingStats(pi, n = 3000) {
+  const c = { miss: 0, go: 0, fly: 0, pop: 0, contact: 0 };
+  for (let i = 0; i < n; i++) {
+    bases = [true, true, false]; outs = 1; runs = [0, 0]; half = 0; strikes = 0; balls = 0;
+    pitch = PITCHES[pi]; aim = { x: HIT.x, y: HIT.y }; computeZone();
+    guess = -1; waitSpot = null; pitcherHand = ['R', 'R']; batterHand = 'L';
+    state = 'pitch'; phaseStart = performance.now(); travel = 1000; swingAt = null; swungMiss = false; msg = '';
+    doSwing(phaseStart + travel + gauss() * 80);
+    if (swungMiss) { c.miss++; continue; }
+    if (msg === 'ファウル') continue;
+    c.contact++;
+    if (msg.includes('ゴロ')) c.go++;
+    else if (msg.includes('フライ') && !msg.includes('ポップ')) c.fly++;
+    else if (msg.includes('ポップ')) c.pop++;
+  }
+  return c;
+}
+const pct = (a, b) => (a / Math.max(1, b) * 100).toFixed(0) + '%';
+
+test('球種は5つで、チェンジアップの代わりにシンカーがある', () => {
+  const names = PITCHES.map(p => p.name).join('・');
+  return names === 'ストレート・スライダー・カーブ・フォーク・シンカー' ? true : names;
+});
+
+// 野球で一般に言われている球種ごとの数字（主にMLBの投球データの集計）に、ゲームの結果が近いか
+//   空振り：シンカー ＜ ストレート ＜ カーブ ＜ スライダー ＜ フォーク
+//   ゴロの割合：ストレート約36% ＜ スライダー約45% ＜ カーブ約51% ＜ シンカー約54% ≒ フォーク約55%
+const STATS = PITCHES.map((p, i) => swingStats(i, 6000));
+const whiff = i => STATS[i].miss / 6000, gb = i => STATS[i].go / STATS[i].contact;
+const [FF, SL, CB, SF, SI] = [0, 1, 2, 3, 4];
+
+test('空振りの多さの順番が「シンカー ＜ ストレート ＜ カーブ ＜ スライダー ＜ フォーク」', () => {
+  const order = [SI, FF, CB, SL, SF];
+  for (let k = 1; k < order.length; k++) if (!(whiff(order[k]) > whiff(order[k - 1]))) {
+    return order.map(i => `${PITCHES[i].name}${pct(STATS[i].miss, 6000)}`).join(' / ');
+  }
+  return true;
+});
+
+test('スライダーとフォークの空振りは、ストレートの1.5倍以上', () => {
+  return whiff(SL) > whiff(FF) * 1.5 && whiff(SF) > whiff(FF) * 1.5 ? true
+    : `ストレート${pct(STATS[FF].miss, 6000)} スライダー${pct(STATS[SL].miss, 6000)} フォーク${pct(STATS[SF].miss, 6000)}`;
+});
+
+test('ゴロの割合が、それぞれの球種の一般的な数字から ±8% 以内', () => {
+  const target = { [FF]: 0.36, [SL]: 0.45, [CB]: 0.51, [SF]: 0.55, [SI]: 0.54 };
+  const bad = Object.keys(target).filter(i => Math.abs(gb(+i) - target[i]) > 0.08);
+  return bad.length === 0 ? true : bad.map(i => `${PITCHES[i].name} ${pct(STATS[i].go, STATS[i].contact)}（目安${target[i] * 100}%）`).join(' / ');
+});
+
+test('ストレートはいちばんゴロが少なく、フライ・ポップフライがいちばん多い', () => {
+  const air = i => (STATS[i].fly + STATS[i].pop) / STATS[i].contact;
+  const others = [SL, CB, SF, SI];
+  return others.every(i => gb(FF) < gb(i) && air(FF) > air(i)) ? true
+    : PITCHES.map((p, i) => `${p.name} ゴロ${pct(STATS[i].go, STATS[i].contact)} フライ系${pct(STATS[i].fly + STATS[i].pop, STATS[i].contact)}`).join(' / ');
+});
+
+test('カーブはストレートより20〜30km/hくらい遅い', () => {
+  const ff = (PITCHES[FF].min + PITCHES[FF].max) / 2, cb = (PITCHES[CB].min + PITCHES[CB].max) / 2;
+  return ff - cb >= 20 && ff - cb <= 35 ? true : `差 ${ff - cb}km/h`;
+});
+
+test('右投げのスライダーは右打者から逃げる向き（グラブ側）、シンカーは反対（腕の側）に曲がる', () => {
+  if (typeof ballPos !== 'function') return 'ballPos がない';
+  pitcherHand = ['R', 'R']; half = 0; aim = { x: HIT.x, y: HIT.y };
+  pitch = PITCHES[1]; const sl = ballPos(1).x - ballPos(0.6).x;     // 画面の右＝右打者から逃げる
+  pitch = PITCHES[4]; const sk = ballPos(1).x - ballPos(0.6).x;
+  return sl > 0 && sk < 0 ? true : `スライダー ${sl.toFixed(1)} シンカー ${sk.toFixed(1)}`;
+});
+
 // ---------------- 結果を表示 ----------------
 const table = document.getElementById('results');
 for (const r of results) {

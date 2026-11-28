@@ -117,7 +117,17 @@ function contactBonus() {
   const c = courseRead();
   if (c === 'hit') b += 15;
   if (c === 'miss') b -= 35;
+  b += pitch.contact || 0;          // 球種ごとの当てやすさ（フォーク・スライダーは空振りしやすい）
   return b;
+}
+
+// 球種ごとの打球の傾向（ゴロの割合などを、野球の一般的な数字に近づける）
+//   フライ系の当たり（フライ・ポップ・長打）の一部をゴロに、ゴロの一部をフライ系に変える
+function pitchTendency(kind) {
+  const air = kind === 'FLY' || kind === 'POP' || kind === 'HR' || kind === '2B' || kind === '3B';
+  if (air && Math.random() < (pitch.toGround || 0)) return 'GO';
+  if (kind === 'GO' && Math.random() < (pitch.toAir || 0)) return pitch.airKind || 'FLY';
+  return kind;
 }
 
 // 待っていたコースとの近さ：'hit'＝的中、'near'＝まあまあ、'miss'＝ハズレ、null＝張っていない
@@ -221,7 +231,7 @@ function doSwing(t) {
   // ② 当たったら、読みの当たり外れで打球の強さが変わる
   //    読みが外れても空振りにはならない（弱い当たり＝ファウルや凡打になりやすい）
   const eff = Math.max(0, Math.min(148, contact + 15 * (inZone ? 0 : 1) + guessBonus()));
-  const kind = battedBall(eff);
+  const kind = pitchTendency(battedBall(eff));
   const from = ballPos((t - phaseStart) / travel);
   hitFlash = { t: performance.now(), x: from.x, y: from.y, p: (t - phaseStart) / travel, big: kind === 'HR' || kind === '2B' || kind === '3B' };
   if (kind === 'FOUL') {

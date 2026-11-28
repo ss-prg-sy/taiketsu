@@ -100,8 +100,11 @@ function drawCount() {
 
 // 投手・打者の名札（右投げ・左打ちなど）
 function drawHandTags() {
-  const p = toScreen(pitcherToWorld([0.45, 1.9, 0]));
-  tag(handName(pitHand(), '投げ'), p.x, p.y);
+  // 投手の名札は、投げていないときだけ。ボールが出てくる腕とは反対（グラブ側）の横に出す
+  if (state !== 'windup' && state !== 'pitch' && !(state === 'result' && !play)) {
+    const p = toScreen(pitcherToWorld([-0.9, 1.0, 0]));
+    tag(handName(pitHand(), '投げ'), p.x, p.y);
+  }
   const b = toScreen(batterToWorld([0, 0, 0]));
   tag(handName(batterHand, '打ち'), Math.max(30, Math.min(W - 30, b.x)), Math.min(H - 14, b.y + 14));
 }

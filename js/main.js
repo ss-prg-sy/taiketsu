@@ -91,6 +91,7 @@ PITCHES.forEach((p, i) => {
   b.addEventListener('click', () => {
     selPitch = i;
     [...pb.children].forEach((c, k) => c.classList.toggle('sel', k === i));
+    document.getElementById('pitchDesc').textContent = PITCHES[i].desc;
   });
   pb.appendChild(b);
 });
@@ -110,6 +111,7 @@ const gb = document.getElementById('guessButtons');
   gb.appendChild(b);
 });
 selectGuess(-1);
+document.getElementById('pitchDesc').textContent = PITCHES[0].desc;
 // 球種ボタンにも色の目印
 [...pb.children].forEach((b, i) => { /** @type {HTMLElement} */ (b).style.borderBottomColor = PCOLORS[i]; });
 document.getElementById('retryBtn').addEventListener('click', () => startGame(mode));

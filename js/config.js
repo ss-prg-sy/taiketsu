@@ -18,12 +18,28 @@ const PLATE_Y = 490;                    // ホームベースの地面
 const WINDUP = 800;                     // 振りかぶる時間（ミリ秒）
 
 // 球種：速さ・曲がり方（bx＝横、by＝縦）・ギリギリで曲がる度合い・出やすさ（CPU用）
+//   bx＝横の曲がり（＋はグラブ側＝右投げなら右打者から逃げる方向、−は投げる腕の側）、by＝落ち方（−は落ちにくくホップして見える）
+//   late＝どれだけギリギリで曲がるか（大きいほど手元で急に）、rise＝一度ふわっと浮く量
+//   contact＝バットに当たる範囲の増減（ミリ秒。マイナスほど空振りしやすい）
+//   toGround＝フライ系の当たりがゴロになる確率、toAir＝ゴロがフライ系になる確率、airKind＝そのときの打球
+//   desc＝投手が選んだときに出す説明
+//
+// 数字の根拠（野球で一般に言われている球種ごとの平均。主にMLBの投球データの集計）
+//   空振り（全投球のうち空振り）：シンカー約6% ＜ ストレート約8〜9% ＜ カーブ約12% ＜ スライダー約16% ＜ フォーク（スプリット）約18%
+//   ゴロの割合（打球のうち）：ストレート約36% ＜ スライダー約45% ＜ カーブ約51% ＜ シンカー約54% ≒ フォーク約55%
+//   伸びのある速いストレートはフライ・ポップフライが多い。カーブはストレートより20〜30km/h遅い
+//   → ゲームでは、空振りの多さの順番と、ゴロの割合が近くなるように合わせている（tests/rules.html で確かめる）
 const PITCHES = [
-  { name: 'ストレート',   short: 'ストレート', min: 135, max: 156, bx: 0,  by: 0,  late: 2, rise: 0,  weight: 40 },
-  { name: 'スライダー',   short: 'スライダー', min: 120, max: 136, bx: 28, by: 8,  late: 2, rise: 0,  weight: 20 },
-  { name: 'カーブ',       short: 'カーブ',     min: 98,  max: 115, bx: 14, by: 30, late: 2, rise: 22, weight: 15 },
-  { name: 'フォーク',     short: 'フォーク',   min: 125, max: 140, bx: 0,  by: 36, late: 5, rise: 0,  weight: 15 },
-  { name: 'チェンジアップ', short: 'チェンジ',   min: 100, max: 118, bx: -6, by: 12, late: 2, rise: 0,  weight: 10 },
+  { name: 'ストレート', short: 'ストレート', min: 138, max: 155, bx: 0,   by: -8, late: 2, rise: 0,  weight: 38, contact: 4,   toGround: 0.18, toAir: 0.10, airKind: 'POP',
+    desc: 'いちばん速く、伸びてくる。空振りは少なめで、フライやポップフライになりやすい' },
+  { name: 'スライダー', short: 'スライダー', min: 125, max: 138, bx: 42,  by: 10, late: 3, rise: 0,  weight: 20, contact: -19, toGround: 0.38, toAir: 0.0,  airKind: 'FLY',
+    desc: '手元で横に大きく滑る。空振りはストレートの約2倍' },
+  { name: 'カーブ',     short: 'カーブ',     min: 108, max: 122, bx: 20,  by: 64, late: 2, rise: 42, weight: 12, contact: -6,  toGround: 0.47, toAir: 0.0,  airKind: 'FLY',
+    desc: 'ストレートより20〜30km/h遅く、一度浮いて大きく落ちる。タイミングを外してゴロに' },
+  { name: 'フォーク',   short: 'フォーク',   min: 128, max: 142, bx: 0,   by: 54, late: 5, rise: 0,  weight: 14, contact: -25, toGround: 0.57, toAir: 0.0,  airKind: 'FLY',
+    desc: '手元でストンと真下に落ちる。空振りがいちばん多く、当たってもゴロになりやすい' },
+  { name: 'シンカー',   short: 'シンカー',   min: 134, max: 148, bx: -32, by: 28, late: 3, rise: 0,  weight: 16, contact: 16,  toGround: 0.56, toAir: 0.0,  airKind: 'FLY',
+    desc: '投げる腕の側へ沈みながら曲がる。空振りは少ないが、ゴロを打たせてゲッツーを狙える' },
 ];
 
 // チームの色（0＝先攻・赤、1＝後攻・青）
