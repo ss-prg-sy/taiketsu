@@ -6,7 +6,7 @@
 let mode = 1;                 // 1＝1人で、2＝2人で
 let inning = 1, half = 0;     // half: 0＝表（先攻の攻撃）、1＝裏（後攻の攻撃）
 let runs = [0, 0];
-let outs = 1, bases = [false, true, true], balls = 0, strikes = 0;
+let outs = 1, bases = [true, true, false], balls = 0, strikes = 0;
 let batterDone = false;
 let state = 'menu';
 // menu → intro → aim（投手が選ぶ）→ handoff（2人用）→ windup → pitch → result → ...

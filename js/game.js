@@ -14,7 +14,8 @@ function startGame(m) {
 
 function startHalf(h) {
   half = h;
-  outs = 1; bases = [false, true, true]; balls = 0; strikes = 0;
+  outs = 1; bases = [true, true, false];   // 1アウト 1塁・2塁からスタート
+  balls = 0; strikes = 0;
   batterDone = false; flight = null; msg = ''; history = [];
   newBatter();
   state = 'intro';
@@ -251,7 +252,15 @@ function inPlay(kind, diff, from) {
   const ifi = ang < -0.4 ? 0 : ang < 0 ? 1 : ang < 0.4 ? 2 : 3;
   // ランナーの動き [どこから, どこへ, アウトか]  0＝バッター、1〜3＝塁、4＝ホームイン
   const mv = [];
-  let r = 0, title = '', sub = '', col = '#7fe0ff', dpThrow = null;
+  let r = 0, title = '', sub = '', col = '#7fe0ff';
+  let throws = [1];                      // ゴロのときの送球先（塁の番号）。ゲッツーなら [2, 1]
+  const BASE_NAME = ['ホーム', '1塁', '2塁', '3塁', 'ホーム'];
+  const chance = p => Math.random() < p;
+
+  // 野球のルール：打者が走ると、後ろから押し出される走者だけが「次の塁へ進む義務」がある（フォース）
+  //   1塁の走者は必ず押し出される。2塁は1塁が埋まっていれば、3塁は1・2塁が埋まっていれば押し出される。
+  //   押し出される走者がいるときだけ、塁を踏むだけでアウトにできる（フォースアウト）＝ゴロのゲッツーが成り立つ。
+  const forced = [b1, b1 && b2, b1 && b2 && b3];
 
   switch (kind) {
     case 'HR':
@@ -272,55 +281,92 @@ function inPlay(kind, diff, from) {
       if (b3) mv.push([3, 4]); if (b2) mv.push([2, 4]);
       r = b2 + b3;
       let n3 = false;
-      if (b1) { if (Math.random() < 0.5) { r++; mv.push([1, 4]); } else { n3 = true; mv.push([1, 3]); } }
+      if (b1) { if (chance(0.4)) { r++; mv.push([1, 4]); } else { n3 = true; mv.push([1, 3]); } }
       mv.push([0, 2]);
       bases = [false, true, n3];
       title = 'ツーベース！';
       break;
     }
     case '1B': {
-      r = +b3; if (b3) mv.push([3, 4]);
       const n = [true, false, false];
-      if (b2) { if (Math.random() < 0.65) { r++; mv.push([2, 4]); } else { n[2] = true; mv.push([2, 3]); } }
-      if (b1) { n[1] = true; mv.push([1, 2]); }
+      if (b3) { r++; mv.push([3, 4]); }
+      if (b2) { if (chance(0.6)) { r++; mv.push([2, 4]); } else { n[2] = true; mv.push([2, 3]); } }
+      if (b1) { if (!n[2] && chance(0.25)) { n[2] = true; mv.push([1, 3]); } else { n[1] = true; mv.push([1, 2]); } }
       mv.push([0, 1]);
       bases = n;
       title = `${OF_NAME[ofi]}前ヒット`;
       break;
     }
     case 'FLY':
+      // フライは捕られたら打者アウト。走者は捕球のあとに塁を離れれば進める（タッチアップ）
       outs++;
       mv.push([0, 1, true]);
       title = `${OF_NAME[ofi]}フライ`; col = '#ffb070';
-      if (outs < 3) {
-        if (b3 && Math.random() < 0.7) { r = 1; bases[2] = false; mv.push([3, 4]); title = '犠牲フライ！'; col = '#7fe0ff'; }
-        if (b2 && !bases[2] && Math.random() < 0.4) { bases[1] = false; bases[2] = true; mv.push([2, 3]); }
+      if (outs < 3) {   // 3つ目のアウトなら、タッチアップしても点は入らない
+        if (b3 && chance(0.7)) { r = 1; bases[2] = false; mv.push([3, 4]); title = '犠牲フライ！'; col = '#7fe0ff'; }
+        if (b2 && !bases[2] && chance(0.4)) { bases[1] = false; bases[2] = true; mv.push([2, 3]); }
       }
       break;
     case 'POP':
       outs++;
       mv.push([0, 1, true]);
       title = 'ポップフライ'; col = '#ffb070';
+      // インフィールドフライ：0〜1アウトで1・2塁か満塁のとき、内野のポップフライは捕らなくても打者アウト。走者は進まなくてよい
+      if (before < 2 && b1 && b2) sub = 'インフィールドフライ';
       break;
     case 'GO': {
-      const anyRunner = b1 || b2 || b3;
-      const dp = before < 2 && ((b1 && Math.random() < 0.55) || (!b1 && anyRunner && Math.random() < 0.18));
-      mv.push([0, 1, true]);
-      if (dp) {
+      title = `${IF_NAME[ifi]}ゴロ`; col = '#ffb070';
+      mv.push([0, 1, true]);          // 打者は1塁へ走る（アウトになるかは下で決める）
+      if (before === 2) {
+        // 2アウトなら、いちばん簡単なアウト（1塁か、押し出しのある塁）を取ってチェンジ。点は入らない
+        outs = 3;
+        if (b1 && chance(0.4)) { throws = [2]; mv.pop(); mv.push([0, 1], [1, 2, true]); }
+        break;
+      }
+      if (b1 && chance(0.55)) {
+        // ゲッツー：押し出される1塁走者を2塁でアウト → 1塁に投げて打者もアウト
         outs += 2;
-        title = `${IF_NAME[ifi]}ゴロ`; sub = 'ゲッツー！'; col = '#ff8080';
-        if (b1)      { bases[0] = false; mv.push([1, 2, true]); dpThrow = 2; }
-        else if (b3) { bases[2] = false; mv.push([3, 4, true]); dpThrow = 0; }
-        else         { bases[1] = false; mv.push([2, 3, true]); dpThrow = 3; }
-      } else {
+        throws = [2, 1];
+        sub = 'ゲッツー！'; col = '#ff8080';
+        mv.push([1, 2, true]);
+        bases = [false, false, false];
+        if (outs < 3) {               // 0アウトからのゲッツーなら、ほかの走者は進める
+          if (b2) { bases[2] = true; mv.push([2, 3]); }
+          if (b3) { if (forced[2] || chance(0.6)) { r++; mv.push([3, 4]); } else { bases[2] = true; } }
+        }
+      } else if (b1 && chance(0.45)) {
+        // フィルダースチョイス：先の走者を押し出しの塁でアウト、打者は1塁セーフ
         outs++;
-        title = `${IF_NAME[ifi]}ゴロ`; col = '#ffb070';
+        let outBase = 2;                                   // ふつうは2塁
+        if (forced[1] && chance(0.35)) outBase = 3;        // 1・2塁なら3塁で刺すことも
+        if (forced[2] && chance(0.3)) outBase = 4;         // 満塁ならホームで刺すことも
+        throws = [outBase === 4 ? 0 : outBase];
+        mv.pop(); mv.push([0, 1]);
+        const n = [true, false, false];
+        mv.push([outBase - 1, outBase, true]);             // アウトになる走者
+        for (let base = 1; base <= 3; base++) {
+          if (!prevBases[base - 1] || base === outBase - 1) continue;
+          if (forced[base - 1]) {                           // 押し出される走者は1つ進む
+            if (base + 1 === 4) { if (outs < 3) r++; mv.push([base, 4]); } else { n[base] = true; mv.push([base, base + 1]); }
+          } else {                                         // 押し出されない走者（3塁）はそのまま
+            n[base - 1] = true;
+          }
+        }
+        if (outs >= 3) r = 0;
+        bases = n;
+        sub = `${BASE_NAME[outBase]}でアウト`;
+      } else {
+        // 打者が1塁でアウト。走者はそれぞれ1つ進む（進塁打）
+        outs++;
         if (outs < 3) {
-          let n1 = false, n2 = false, n3 = false;
-          if (b3) { if (Math.random() < 0.5) { r++; mv.push([3, 4]); } else n3 = true; }
-          if (b2) { if (!n3) { n3 = true; mv.push([2, 3]); } else n2 = true; }
-          if (b1) { if (!n2) { n2 = true; mv.push([1, 2]); } else n1 = true; }
-          bases = [n1, n2, n3];
+          const n = [false, false, false];
+          if (b3) {
+            if (forced[2] || chance(0.5)) { r++; mv.push([3, 4]); } else n[2] = true;
+          }
+          if (b2) { if (!n[2]) { n[2] = true; mv.push([2, 3]); } else n[1] = true; }
+          if (b1) { if (!n[1]) { n[1] = true; mv.push([1, 2]); } else n[0] = true; }
+          bases = n;
+          if (mv.length > 1) sub = '走者進塁';
         }
       }
       break;
@@ -342,7 +388,7 @@ function inPlay(kind, diff, from) {
   if (half === 1 && runs[1] > runs[0]) { parts.push('サヨナラ！'); col = '#ffd23f'; }
 
   startFlight(from, diff, kind);                // 最初の一瞬は近い視点で打球を見せる
-  play = makePlay(kind, ang, ofi, ifi, mv, dpThrow);
+  play = makePlay(kind, ang, ofi, ifi, mv, throws);
   const total = 300 + Math.max(play.ballEnd, play.runEnd) * 1000 + 1200;
   showResult(title, parts.join('　'), col, total);
   wideAt = performance.now() + 300;             // 0.3秒後に引きのカメラへ
@@ -350,7 +396,7 @@ function inPlay(kind, diff, from) {
 }
 
 // 引きのカメラで見せる打球・守備・ランナーの動きを作る
-function makePlay(kind, ang, ofi, ifi, mv, dpThrow) {
+function makePlay(kind, ang, ofi, ifi, mv, throws) {
   const segs = [];          // ボールの動き（区間ごと）
   let chaser = null;        // ボールを追いかける野手
   let runDelay = 0.1;
@@ -406,12 +452,9 @@ function makePlay(kind, ang, ofi, ifi, mv, dpThrow) {
       const land = polar(Math.hypot(f[0], f[1]), ang);
       seg(start, land, 0.5, 0.75, 0.5);
       chaser = { g: 'IF', i: ifi, to: land, t: 0.75 };
-      if (dpThrow !== null) {
-        seg(land, BASES_W[dpThrow], 1.5, 0.45);
-        seg(BASES_W[dpThrow], BASES_W[1], 1.5, 0.5);
-      } else {
-        seg(land, BASES_W[1], 1.5, 0.5);
-      }
+      // 送球：塁から塁へ（ゲッツーなら 2塁 → 1塁）
+      let at = land;
+      for (const t of throws) { seg(at, BASES_W[t], 1.5, 0.45); at = BASES_W[t]; }
       break;
     }
   }
