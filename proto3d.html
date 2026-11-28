@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>3D お試し版</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a1236; overflow: hidden; color: #fff;
+    font-family: system-ui, "Hiragino Sans", "Yu Gothic UI", sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #c { display: block; width: 100vw; height: 100vh; height: 100dvh; }
+  .panel { background: rgba(18, 23, 53, .86); border: 1.5px solid #9fb3f2; border-radius: 12px; box-shadow: 0 0 8px rgba(140,170,255,.4); }
+  #top { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 6px 14px; font-weight: bold; font-size: 14px; white-space: nowrap; text-align: center; }
+  #top small { display: block; font-weight: normal; color: #c9d3ff; font-size: 12px; }
+  #msg { position: fixed; top: 26%; left: 0; right: 0; text-align: center; font-size: 44px; font-weight: 900; pointer-events: none;
+    text-shadow: 0 0 6px #000, 0 3px 0 #161a36, 0 -2px 0 #161a36; transition: transform .15s; }
+  #sub { position: fixed; top: calc(26% + 54px); left: 0; right: 0; text-align: center; font-size: 18px; font-weight: bold; text-shadow: 0 0 5px #000; pointer-events: none; }
+  #bottom { position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); padding: 8px 10px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  #hint { font-size: 14px; font-weight: bold; }
+  button { font-size: 13px; font-weight: bold; border: 0; border-radius: 999px; padding: 10px 14px; background: #ffd23f; color: #222; white-space: nowrap; }
+  #back { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 8px; font-size: 12px; color: #c9d3ff; text-decoration: none; padding: 6px 8px; }
+  #err { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; padding: 20px; font-size: 16px; line-height: 1.7; background: #0a1236; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a id="back" class="panel" href="./">← 2D版へ</a>
+<div id="top" class="panel">3D お試し版<small id="info">投手が投げてきます</small></div>
+<div id="msg"></div>
+<div id="sub"></div>
+<div id="bottom" class="panel">
+  <span id="hint">👆 タップでスイング</span>
+  <button id="camBtn">カメラ：キャッチャー目線</button>
+</div>
+<div id="err">3D の部品を読み込めませんでした。<br>ネットにつながっているか確かめて、もう一度開いてください。</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// =====================================================================
+//  1イニング対決 3D お試し版
+//  ・長さはメートル。ホームベースが原点、ピッチャーの方向が +z、上が +y
+//  ・キャッチャーから見て左（3塁側）が +x
+// =====================================================================
+if (typeof THREE === 'undefined') { document.getElementById('err').style.display = 'flex'; throw new Error('three.js not loaded'); }
+const V3 = THREE.Vector3;
+const UP = new V3(0, 1, 0);
+
+// ---------------- 画面の準備 ----------------
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x2a2d6e, 90, 260);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 600);
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.fov = w < h ? 66 : 42;          // スマホの縦画面は広めに写す（打者が画面に入るように）
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 絵（テクスチャ）を作る小さな道具
+function canvasTex(w, h, draw, repeat) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+  t.anisotropy = 4;
+  return t;
+}
+let seed = 3;
+const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+
+// ---------------- 空と光 ----------------
+scene.background = canvasTex(16, 512, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, '#0a1236'); gr.addColorStop(0.5, '#262c78'); gr.addColorStop(0.78, '#6b3f8c'); gr.addColorStop(1, '#b0587e');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+scene.add(new THREE.HemisphereLight(0xb0b8ff, 0x1e2e1a, 0.55));
+const sun = new THREE.DirectionalLight(0xfff2dc, 0.95);       // ナイター照明をまとめた光
+sun.position.set(-10, 30, -14);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 34, bottom: -6, near: 1, far: 90 });
+sun.target.position.set(0, 0, 10);
+scene.add(sun, sun.target);
+
+// ---------------- グラウンド ----------------
+const grassTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#2f7a35'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#3a8c3e'; g.fillRect(0, 0, w, h / 2);              // 刈りあとのしま
+  for (let i = 0; i < 2500; i++) {                                // 芝の質感
+    g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,.12)' : 'rgba(200,255,180,.08)';
+    g.fillRect(rnd() * w, rnd() * h, 1, 2);
+  }
+}, [1, 40]);
+const dirtTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#9a5432'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 6000; i++) {
+    g.fillStyle = rnd() < 0.5 ? 'rgba(60,20,8,.25)' : 'rgba(255,200,160,.15)';
+    g.fillRect(rnd() * w, rnd() * h, 1.5, 1.5);
+  }
+}, [10, 10]);
+const mat = {
+  grass: new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.95 }),
+  dirt: new THREE.MeshStandardMaterial({ map: dirtTex, roughness: 1 }),
+  chalk: new THREE.MeshBasicMaterial({ color: 0xf5f2ea }),
+  wall: new THREE.MeshStandardMaterial({ color: 0x1d4f4a, roughness: 0.8, side: THREE.DoubleSide }),
+  yellow: new THREE.MeshBasicMaterial({ color: 0xf2d03b }),
+};
+function flat(geo, m, y = 0) {
+  const mesh = new THREE.Mesh(geo, m);
+  mesh.rotation.x = -Math.PI / 2; mesh.position.y = y; mesh.receiveShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
+// 芝（外野の扇形）
+flat(new THREE.CircleGeometry(122, 64, Math.PI / 4, Math.PI / 2 * 3), mat.grass);
+flat(new THREE.CircleGeometry(122, 64, -Math.PI / 4 + 0.001, Math.PI / 2), mat.grass);
+// 内野の土・内野の芝・マウンド・ホームのまわり
+const infield = flat(new THREE.CircleGeometry(29, 48), mat.dirt, 0.01); infield.position.z = 18.4;
+const diamondGrass = flat(new THREE.PlaneGeometry(24.5, 24.5), mat.grass, 0.02);
+diamondGrass.rotation.z = Math.PI / 4; diamondGrass.position.z = 19.4;
+const homeDirt = flat(new THREE.CircleGeometry(4.2, 32), mat.dirt, 0.03);
+const mound = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.9, 0.25, 32), mat.dirt);
+mound.position.set(0, 0.125, 18.44); mound.receiveShadow = true; scene.add(mound);
+const rubber = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.03, 0.15), mat.chalk);
+rubber.position.set(0, 0.26, 18.44); scene.add(rubber);
+// ベース
+for (const [x, z] of [[-19.4, 19.4], [0, 38.8], [19.4, 19.4]]) {
+  const b = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.08, 0.38), mat.chalk);
+  b.position.set(x, 0.04, z); b.rotation.y = Math.PI / 4; scene.add(b);
+}
+// ホームベース
+const plateShape = new THREE.Shape();
+plateShape.moveTo(-0.216, 0); plateShape.lineTo(0.216, 0); plateShape.lineTo(0.216, -0.216); plateShape.lineTo(0, -0.43); plateShape.lineTo(-0.216, -0.216);
+const plate = flat(new THREE.ShapeGeometry(plateShape), new THREE.MeshStandardMaterial({ color: 0xf3e9d8 }), 0.04);
+plate.position.z = 0.215;
+// 白線（ファウルライン・バッターボックス）
+function line(x1, z1, x2, z2, w = 0.08) {
+  const len = Math.hypot(x2 - x1, z2 - z1);
+  const m = flat(new THREE.PlaneGeometry(w, len), mat.chalk, 0.045);
+  m.position.x = (x1 + x2) / 2; m.position.z = (z1 + z2) / 2;
+  m.rotation.z = -Math.atan2(x2 - x1, z2 - z1);
+}
+line(0, 0, 70, 70); line(0, 0, -70, 70);
+for (const s of [1, -1]) {
+  const x0 = s * 0.35, x1 = s * 1.55;
+  line(x0, -0.9, x1, -0.9); line(x1, -0.9, x1, 0.9); line(x1, 0.9, x0, 0.9); line(x0, 0.9, x0, -0.9);
+}
+// フェンス（両翼96m〜センター120mの丸い壁）
+const fenceR = 104;
+const fence = new THREE.Mesh(new THREE.CylinderGeometry(fenceR, fenceR, 3.2, 72, 1, true, -Math.PI / 4, Math.PI / 2), mat.wall);
+fence.position.y = 1.6; scene.add(fence);
+const fenceTop = new THREE.Mesh(new THREE.CylinderGeometry(fenceR - 0.05, fenceR - 0.05, 0.18, 72, 1, true, -Math.PI / 4, Math.PI / 2), mat.yellow);
+fenceTop.position.y = 3.2; scene.add(fenceTop);
+// 観客席（段々の輪）
+const crowdTex = canvasTex(512, 128, (g, w, h) => {
+  g.fillStyle = '#1e2a5c'; g.fillRect(0, 0, w, h);
+  const cols = ['#f2d8c0', '#e9b48f', '#f6f1e8', '#5f8fe8', '#f2c94a', '#d9536a', '#9fc0ff'];
+  for (let i = 0; i < 2600; i++) { g.fillStyle = cols[Math.floor(rnd() * cols.length)]; g.fillRect(rnd() * w, rnd() * h, 2, 2.5); }
+  g.fillStyle = 'rgba(0,0,0,.25)'; for (let y = 0; y < h; y += 16) g.fillRect(0, y, w, 4);
+}, [18, 1]);
+const crowdMat = new THREE.MeshStandardMaterial({ map: crowdTex, roughness: 1, side: THREE.DoubleSide, emissive: 0x111833 });
+for (let k = 0; k < 4; k++) {
+  const r = fenceR + 4 + k * 9;
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(r + 3, r, 4.5, 72, 1, true, -Math.PI * 0.62, Math.PI * 1.24), crowdMat);
+  ring.position.y = 3 + k * 4; scene.add(ring);
+}
+// 照明塔（光のにじみはスプライト）
+const glowTex = canvasTex(128, 128, (g, w, h) => {
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,250,225,1)'); gr.addColorStop(0.25, 'rgba(255,240,200,.5)'); gr.addColorStop(1, 'rgba(255,240,200,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+for (const a of [-1.0, 1.0]) {
+  const x = Math.sin(a) * 125, z = Math.cos(a) * 125;
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, 48, 8), new THREE.MeshStandardMaterial({ color: 0x8f96b8 }));
+  pole.position.set(x, 24, z); scene.add(pole);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(12, 6, 1), new THREE.MeshBasicMaterial({ color: 0xfff8e0 }));
+  head.position.set(x, 50, z); head.lookAt(0, 0, 0); scene.add(head);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  glow.position.copy(head.position); glow.scale.set(60, 60, 1); scene.add(glow);
+}
+
+// ---------------- ストライクゾーン（光る枠） ----------------
+const ZONE = { x: 0.216, y0: 0.5, y1: 1.05 };
+const BZONE = { x: 0.3, y0: 0.4, y1: 1.15 };
+const zoneGroup = new THREE.Group(); scene.add(zoneGroup);
+{
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(BZONE.x * 2, BZONE.y1 - BZONE.y0),
+    new THREE.MeshBasicMaterial({ color: 0x35d6c8, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide }));
+  fill.position.set(0, (BZONE.y0 + BZONE.y1) / 2, 0); zoneGroup.add(fill);
+  const pts = [];
+  const rect = (x, y0, y1) => pts.push(-x, y0, 0, x, y0, 0, x, y0, 0, x, y1, 0, x, y1, 0, -x, y1, 0, -x, y1, 0, -x, y0, 0);
+  rect(BZONE.x, BZONE.y0, BZONE.y1);
+  const g1 = new THREE.BufferGeometry(); g1.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  zoneGroup.add(new THREE.LineSegments(g1, new THREE.LineBasicMaterial({ color: 0x5ff2e2 })));
+  const p2 = [];
+  const r2 = (x, y0, y1) => p2.push(-x, y0, 0, x, y0, 0, x, y0, 0, x, y1, 0, x, y1, 0, -x, y1, 0, -x, y1, 0, -x, y0, 0);
+  r2(ZONE.x, ZONE.y0, ZONE.y1);
+  for (let i = 1; i < 3; i++) {
+    const x = -ZONE.x + ZONE.x * 2 * i / 3, y = ZONE.y0 + (ZONE.y1 - ZONE.y0) * i / 3;
+    p2.push(x, ZONE.y0, 0, x, ZONE.y1, 0, -ZONE.x, y, 0, ZONE.x, y, 0);
+  }
+  const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(p2, 3));
+  zoneGroup.add(new THREE.LineSegments(g2, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })));
+}
+
+// =====================================================================
+//  人形：丸（関節）と筒（手足）をつないで作る。関節の位置を決めると、筒がその間に伸びる
+// =====================================================================
+const CYL = new THREE.CylinderGeometry(1, 1, 1, 12);
+function makeFigure(colors) {
+  const group = new THREE.Group(); scene.add(group);
+  const m = {
+    shirt: new THREE.MeshStandardMaterial({ color: colors.shirt, roughness: 0.55 }),
+    pants: new THREE.MeshStandardMaterial({ color: 0xf2ece3, roughness: 0.7 }),
+    sock: new THREE.MeshStandardMaterial({ color: colors.shirt, roughness: 0.6 }),
+    skin: new THREE.MeshStandardMaterial({ color: 0xf0c29e, roughness: 0.7 }),
+    shoe: new THREE.MeshStandardMaterial({ color: 0x2f3346, roughness: 0.5 }),
+    cap: new THREE.MeshStandardMaterial({ color: colors.cap, roughness: 0.3, metalness: 0.15 }),
+    glove: new THREE.MeshStandardMaterial({ color: 0x9a5a2e, roughness: 0.6 }),
+    hair: new THREE.MeshStandardMaterial({ color: 0x2b211d, roughness: 0.8 }),
+  };
+  const mk = (geo, material) => { const x = new THREE.Mesh(geo, material); x.castShadow = true; group.add(x); return x; };
+  const seg = (r1, r2, material) => { const x = mk(new THREE.CylinderGeometry(r2, r1, 1, 12), material); return x; };
+  const ball = (r, material) => mk(new THREE.SphereGeometry(r, 14, 10), material);
+  const f = {
+    group, m,
+    thighA: seg(0.075, 0.09, m.pants), thighB: seg(0.075, 0.09, m.pants),
+    shinA: seg(0.05, 0.07, m.pants), shinB: seg(0.05, 0.07, m.pants),
+    sockA: seg(0.048, 0.055, m.sock), sockB: seg(0.048, 0.055, m.sock),
+    kneeA: ball(0.072, m.pants), kneeB: ball(0.072, m.pants),
+    footA: mk(new THREE.BoxGeometry(0.11, 0.08, 0.27), m.shoe), footB: mk(new THREE.BoxGeometry(0.11, 0.08, 0.27), m.shoe),
+    hips: ball(0.17, m.pants),
+    torso: mk(new THREE.CylinderGeometry(0.5, 0.42, 1, 16), m.shirt),
+    shA: ball(0.075, m.shirt), shB: ball(0.075, m.shirt),
+    upperA: seg(0.05, 0.065, m.shirt), upperB: seg(0.05, 0.065, m.shirt),
+    foreA: seg(0.035, 0.045, m.skin), foreB: seg(0.035, 0.045, m.skin),
+    elbowA: ball(0.05, m.skin), elbowB: ball(0.05, m.skin),
+    handA: ball(0.05, colors.gloves ? m.glove : m.skin), handB: ball(0.045, m.skin),
+    neck: seg(0.05, 0.05, m.skin),
+    head: new THREE.Group(),
+  };
+  f.torso.matrixAutoUpdate = false;
+  group.add(f.head);
+  const face = new THREE.Mesh(new THREE.SphereGeometry(0.11, 18, 14), m.skin); face.castShadow = true; f.head.add(face);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.112, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.6), m.hair); hair.rotation.x = -0.5; hair.position.z = -0.01; f.head.add(hair);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.125, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), m.cap); cap.position.y = 0.02; cap.castShadow = true; f.head.add(cap);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.015, 18, 1, false, -Math.PI / 2, Math.PI), m.cap);
+  brim.position.set(0, 0.03, 0.06); f.head.add(brim);
+  if (colors.helmetFlap) { const flap = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), m.cap); flap.position.set(colors.helmetFlap * 0.1, -0.03, -0.01); f.head.add(flap); }
+  return f;
+}
+// 筒を a から b に伸ばす
+function setSeg(mesh, a, b) {
+  const d = new V3().subVectors(b, a); const len = d.length() || 0.001;
+  mesh.position.copy(a).addScaledVector(d, 0.5);
+  mesh.scale.set(1, len, 1);
+  mesh.quaternion.setFromUnitVectors(UP, d.divideScalar(len));
+}
+// 腕・足の「ひじ・ひざ」の位置：長さが決まっているので、手先が近いほど曲がる。曲がる向きは hint の方
+function joint(a, c, l1, l2, hint) {
+  const ac = new V3().subVectors(c, a); const d = Math.min(ac.length(), l1 + l2 - 0.001) || 0.001;
+  const dir = ac.clone().normalize();
+  const x = (l1 * l1 - l2 * l2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, l1 * l1 - x * x));
+  const side = hint.clone().sub(dir.clone().multiplyScalar(hint.dot(dir))).normalize();
+  return a.clone().addScaledVector(dir, x).addScaledVector(side, h);
+}
+// ポーズ（関節の位置）を人形に当てはめる
+function applyPose(f, P, face) {
+  const kneeA = P.kneeA, kneeB = P.kneeB;
+  for (const s of ['A', 'B']) {
+    const hip = P['hip' + s], knee = s === 'A' ? kneeA : kneeB, ankle = P['ankle' + s];
+    setSeg(f['thigh' + s], knee, hip);
+    const mid = knee.clone().lerp(ankle, 0.5);
+    setSeg(f['shin' + s], mid, knee);
+    setSeg(f['sock' + s], ankle, mid);
+    f['knee' + s].position.copy(knee);
+    const foot = f['foot' + s];
+    foot.position.set(ankle.x + face.x * 0.07, Math.max(0.04, ankle.y - 0.03), ankle.z + face.z * 0.07);
+    foot.rotation.set(0, Math.atan2(face.x, face.z), 0);
+  }
+  const pelvis = P.hipA.clone().lerp(P.hipB, 0.5);
+  const chest = P.shA.clone().lerp(P.shB, 0.5);
+  f.hips.position.copy(pelvis); f.hips.scale.set(1, 0.7, 0.8);
+  // 体：腰から胸へ。肩の向きに合わせて横に広い形
+  const up = new V3().subVectors(chest, pelvis); const len = up.length(); up.normalize();
+  const right = new V3().subVectors(P.shB, P.shA); right.sub(up.clone().multiplyScalar(right.dot(up))).normalize();
+  const fwd = new V3().crossVectors(right, up);
+  const mtx = new THREE.Matrix4().makeBasis(right, up, fwd);
+  mtx.scale(new V3(0.36, len * 1.05, 0.22));
+  mtx.setPosition(pelvis.clone().lerp(chest, 0.52));
+  f.torso.matrix.copy(mtx);
+  f.shA.position.copy(P.shA); f.shB.position.copy(P.shB);
+  for (const s of ['A', 'B']) {
+    const sh = P['sh' + s], hand = P['hand' + s];
+    const el = joint(sh, hand, 0.29, 0.28, new V3(0, -1, 0).addScaledVector(right, s === 'A' ? -0.8 : 0.8));
+    setSeg(f['upper' + s], el, sh);
+    setSeg(f['fore' + s], hand, el);
+    f['elbow' + s].position.copy(el);
+    f['hand' + s].position.copy(hand);
+  }
+  const neckTop = P.head.clone().add(new V3(0, -0.1, 0));
+  setSeg(f.neck, chest, neckTop);
+  f.head.position.copy(P.head);
+  f.head.lookAt(P.head.clone().add(face));
+}
+
+// ポーズの数字（[x, y, z] の並び）を混ぜる
+function mix(a, b, k) {
+  const o = {};
+  for (const key in a) o[key] = a[key].map((v, i) => v + (b[key][i] - v) * k);
+  return o;
+}
+const ease = k => { k = Math.max(0, Math.min(1, k)); return k * k * (3 - 2 * k); };
+const easeOut = k => { k = Math.max(0, Math.min(1, k)); return 1 - (1 - k) * (1 - k); };
+
+// =====================================================================
+//  打者（右打ち）：自分の体の向きで書いたポーズ [ホーム側へ, 上へ, 投手側へ]（メートル）
+// =====================================================================
+const BAT_BASE = new V3(0.95, 0, 0);
+const B = {
+  STANCE:  { ankleA: [0, .07, -.36], ankleB: [0, .07, .34], kneeA: [.12, .48, -.3], kneeB: [.12, .48, .3], hipA: [0, .92, -.13], hipB: [0, .92, .13],
+             shA: [.02, 1.42, -.19], shB: [.06, 1.43, .17], head: [.08, 1.66, 0], hand: [.2, 1.4, -.24], bat: [-.15, .9, -.4] },
+  LOAD:    { ankleA: [0, .07, -.36], ankleB: [.02, .22, .24], kneeA: [.12, .48, -.3], kneeB: [.18, .6, .28], hipA: [0, .92, -.14], hipB: [0, .92, .12],
+             shA: [.02, 1.42, -.2], shB: [.06, 1.43, .15], head: [.07, 1.66, -.02], hand: [.17, 1.45, -.34], bat: [-.2, .9, -.38] },
+  STRIDE:  { ankleA: [0, .07, -.36], ankleB: [0, .07, .56], kneeA: [.14, .46, -.28], kneeB: [.14, .46, .5], hipA: [0, .88, -.12], hipB: [0, .88, .16],
+             shA: [.02, 1.39, -.18], shB: [.06, 1.4, .19], head: [.08, 1.63, .02], hand: [.18, 1.37, -.3], bat: [-.2, .88, -.42] },
+  CONTACT: { ankleA: [.06, .1, -.33], ankleB: [0, .07, .56], kneeA: [.22, .45, -.18], kneeB: [.08, .46, .5], hipA: [.12, .88, -.06], hipB: [-.08, .88, .12],
+             shA: [.18, 1.37, -.02], shB: [-.08, 1.4, .12], head: [.1, 1.62, .06], hand: [.42, 1.0, .2], bat: [1, .04, .22] },
+  EXT:     { ankleA: [.08, .12, -.3], ankleB: [0, .07, .56], kneeA: [.24, .45, -.12], kneeB: [.08, .46, .5], hipA: [.15, .88, 0], hipB: [-.1, .88, .08],
+             shA: [.2, 1.38, .08], shB: [-.12, 1.4, .06], head: [.08, 1.62, .06], hand: [.25, 1.15, .45], bat: [.25, .2, 1] },
+  FINISH:  { ankleA: [.1, .14, -.28], ankleB: [0, .07, .56], kneeA: [.24, .46, -.08], kneeB: [.08, .46, .5], hipA: [.15, .88, .04], hipB: [-.1, .88, .04],
+             shA: [.2, 1.4, .12], shB: [-.14, 1.41, 0], head: [.06, 1.63, .06], hand: [-.12, 1.5, .05], bat: [-.35, .35, -.87] },
+};
+const batterToWorld = l => new V3(BAT_BASE.x - l[0], BAT_BASE.y + l[1], BAT_BASE.z + l[2]);
+const batter = makeFigure({ shirt: 0xd63a37, cap: 0xd63a37, helmetFlap: 1 });
+const bat = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.016, 0.86, 14), new THREE.MeshStandardMaterial({ color: 0xe9b35a, roughness: 0.35 }));
+bat.castShadow = true; scene.add(bat);
+
+// =====================================================================
+//  投手（右投げ）：[投げる腕の側へ, 上へ, ホームの方へ]（メートル）。A＝グラブ側、B＝投げる側
+// =====================================================================
+const PIT_BASE = new V3(0, 0.25, 18.44);
+const PP = {
+  SET:     { ankleA: [-.15, .07, 0], ankleB: [.15, .07, 0], kneeA: [-.15, .5, .03], kneeB: [.15, .5, .03], hipA: [-.13, .93, 0], hipB: [.13, .93, 0],
+             shA: [-.19, 1.43, 0], shB: [.19, 1.43, 0], head: [0, 1.67, .01], handA: [-.04, 1.2, .16], handB: [.04, 1.2, .16] },
+  LIFT:    { ankleA: [-.1, .55, .05], ankleB: [.15, .07, 0], kneeA: [-.12, .98, .2], kneeB: [.15, .5, .03], hipA: [-.13, .95, 0], hipB: [.13, .95, 0],
+             shA: [-.19, 1.45, 0], shB: [.19, 1.45, 0], head: [0, 1.69, 0], handA: [-.02, 1.3, .15], handB: [.03, 1.3, .15] },
+  COCK:    { ankleA: [-.22, .07, .85], ankleB: [.16, .07, 0], kneeA: [-.2, .45, .72], kneeB: [.2, .46, .05], hipA: [-.13, .86, .28], hipB: [.14, .86, .2],
+             shA: [-.18, 1.36, .32], shB: [.2, 1.4, .05], head: [0, 1.6, .25], handA: [-.3, 1.32, .62], handB: [.5, 1.62, -.25] },
+  RELEASE: { ankleA: [-.22, .07, .85], ankleB: [.2, .15, -.05], kneeA: [-.2, .45, .72], kneeB: [.2, .48, .2], hipA: [-.12, .86, .45], hipB: [.13, .86, .4],
+             shA: [-.18, 1.3, .6], shB: [.16, 1.34, .55], head: [0, 1.52, .65], handA: [-.25, 1.05, .4], handB: [.22, 1.75, .75] },
+  FOLLOW:  { ankleA: [-.22, .07, .85], ankleB: [.25, .62, -.35], kneeA: [-.2, .45, .75], kneeB: [.2, .62, .15], hipA: [-.12, .8, .55], hipB: [.12, .82, .5],
+             shA: [-.16, 1.12, .78], shB: [.1, 1.14, .8], head: [-.02, 1.32, .88], handA: [-.22, .95, .45], handB: [-.25, .72, .85] },
+};
+const pitcherToWorld = l => new V3(PIT_BASE.x + l[0], PIT_BASE.y + l[1], PIT_BASE.z - l[2]);   // 右投げ：投げる右手は +x 側（キャッチャーから見て左）
+const pitcher = makeFigure({ shirt: 0x2f5fd8, cap: 0x1b3a8f, gloves: true });
+
+// =====================================================================
+//  投球とスイング
+// =====================================================================
+const PITCHES = [
+  { name: 'ストレート', min: 138, max: 156, brk: [0, 0], late: 2, col: '#ffffff' },
+  { name: 'スライダー', min: 122, max: 136, brk: [-0.28, -0.06], late: 2, col: '#4fd8ff' },
+  { name: 'カーブ',     min: 100, max: 116, brk: [-0.14, -0.38], late: 2, col: '#5ee07a' },
+  { name: 'フォーク',   min: 126, max: 140, brk: [0, -0.42], late: 5, col: '#ff6bd5' },
+];
+const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x666666, roughness: 0.4 }));
+ballMesh.castShadow = true; scene.add(ballMesh);
+const ballShadow = new THREE.Mesh(new THREE.CircleGeometry(0.07, 16), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false }));
+ballShadow.rotation.x = -Math.PI / 2; scene.add(ballShadow);
+
+const WINDUP = 950;
+let state = 'ready', t0 = performance.now();
+let pitch = PITCHES[0], speed = 140, travel = 1000, target = new V3(), release = new V3();
+let swingAt = null, swingBase = null, hit = null, inZone = true;
+const msgEl = document.getElementById('msg'), subEl = document.getElementById('sub'), infoEl = document.getElementById('info');
+function say(m, sub, col) { msgEl.textContent = m; subEl.textContent = sub || ''; msgEl.style.color = col || '#fff'; msgEl.style.transform = 'scale(1.3)'; setTimeout(() => msgEl.style.transform = 'scale(1)', 60); }
+
+function newPitch() {
+  pitch = PITCHES[Math.floor(Math.random() * PITCHES.length)];
+  speed = Math.round(pitch.min + Math.random() * (pitch.max - pitch.min));
+  travel = 18.44 / (speed / 3.6) * 1000 * 2.0;            // 本物より2倍ゆっくり
+  inZone = Math.random() < 0.65;
+  if (inZone) target.set((Math.random() * 2 - 1) * ZONE.x * 0.9, ZONE.y0 + 0.04 + Math.random() * (ZONE.y1 - ZONE.y0 - 0.08), 0);
+  else {
+    const side = Math.floor(Math.random() * 4);
+    target.set(side === 0 ? -BZONE.x : side === 1 ? BZONE.x : (Math.random() * 2 - 1) * ZONE.x,
+               side === 2 ? BZONE.y0 : side === 3 ? BZONE.y1 : ZONE.y0 + Math.random() * (ZONE.y1 - ZONE.y0), 0);
+  }
+  release.copy(pitcherToWorld(PP.RELEASE.handB));
+  swingAt = null; swingBase = null; hit = null;
+  msgEl.textContent = ''; subEl.textContent = '';
+  infoEl.textContent = '投手が投げてきます';
+  state = 'windup'; t0 = performance.now();
+}
+
+// 投げた球の位置（p＝0 で手を離れる、1 でホームベース）
+function pitchPos(p) {
+  const q = Math.min(p, 1);
+  const pos = release.clone().lerp(target, q);
+  const bend = Math.pow(q, pitch.late);
+  pos.x -= pitch.brk[0] * (1 - bend) * q * 2;            // 変化球：途中まで外れた方向に見えて、手元で曲がってくる
+  pos.y -= pitch.brk[1] * (1 - bend) * q * 2;
+  pos.y += Math.sin(Math.PI * q) * 0.25;                   // 少し山なり
+  if (p > 1) pos.z -= (p - 1) * 30;
+  return pos;
+}
+
+// 打者のポーズ（スイングしていないとき）
+function batterBase(now) {
+  if (state === 'windup') return mix(B.STANCE, B.LOAD, ease((now - t0) / (WINDUP * 0.6)));
+  if (state === 'pitch') return mix(B.LOAD, B.STRIDE, ease((now - t0) / (travel * 0.35)));
+  if (state === 'result' && swingAt === null) return mix(B.STRIDE, B.STANCE, ease((now - t0) / 500));
+  const bob = Math.sin(now / 320) * 0.01;
+  const p = mix(B.STANCE, B.STANCE, 0); p.hand[1] += bob; p.head[1] += bob * 0.5;
+  return p;
+}
+function batterPoseNow(now) {
+  if (swingAt === null || !swingBase) return batterBase(now);
+  const t = now - swingAt;
+  if (t < 60) return mix(swingBase, B.CONTACT, (t / 60) ** 2);
+  if (t < 130) return mix(B.CONTACT, B.EXT, easeOut((t - 60) / 70));
+  if (t < 300) return mix(B.EXT, B.FINISH, easeOut((t - 130) / 170));
+  return B.FINISH;
+}
+function pitcherPoseNow(now) {
+  if (state === 'windup') {
+    const k = (now - t0) / WINDUP;
+    return k < 0.45 ? mix(PP.SET, PP.LIFT, ease(k / 0.45)) : mix(PP.LIFT, PP.COCK, ease((k - 0.45) / 0.55));
+  }
+  if (state === 'pitch') {
+    const p = (now - t0) / travel;
+    return p < 0.08 ? mix(PP.COCK, PP.RELEASE, ease(p / 0.08)) : mix(PP.RELEASE, PP.FOLLOW, easeOut((p - 0.08) / 0.3));
+  }
+  if (state === 'result' || state === 'flight') return mix(PP.FOLLOW, PP.SET, ease((now - t0 - 600) / 700));
+  return PP.SET;
+}
+
+// スイング（タップ）
+function swing() {
+  if (swingAt !== null || (state !== 'windup' && state !== 'pitch')) return;
+  const now = performance.now();
+  swingBase = batterBase(now);
+  swingAt = now;
+  if (state !== 'pitch') return;                           // 投げる前に振った＝空振り
+  const diff = now - (t0 + travel);                       // マイナス＝早い、プラス＝遅い
+  const e = Math.abs(diff) + (inZone ? 0 : 40);
+  if (e > 130) return;                                     // 空振り（ボールが通り過ぎたら判定）
+  // 当たった：打球の種類を決めて、ボールを飛ばす
+  const r = Math.random();
+  let kind, v, launch;
+  if (e <= 30)      { kind = r < 0.55 ? 'HR' : 'LONG'; v = kind === 'HR' ? 44 : 38; launch = 28; }
+  else if (e <= 65) { kind = r < 0.5 ? 'HIT' : 'FLY'; v = kind === 'HIT' ? 33 : 32; launch = kind === 'HIT' ? 12 : 40; }
+  else if (e <= 100) { kind = r < 0.6 ? 'GROUND' : 'POP'; v = kind === 'GROUND' ? 27 : 22; launch = kind === 'GROUND' ? -6 : 68; }
+  else              { kind = 'FOUL'; v = 26; launch = 38; }
+  let ang = Math.max(-0.75, Math.min(0.75, -diff * 0.0065 + (Math.random() - 0.5) * 0.15));   // 早い＝引っぱり（3塁側＝+x）
+  if (kind === 'FOUL') ang = (diff < 0 ? 1 : -1) * (1.0 + Math.random() * 0.3);
+  const la = launch * Math.PI / 180;
+  const from = pitchPos((now - t0) / travel);
+  hit = { kind, pos: from.clone(), vel: new V3(Math.sin(ang) * Math.cos(la) * v, Math.sin(la) * v, Math.cos(ang) * Math.cos(la) * v), start: now, bounced: false, landed: null };
+  state = 'flight'; t0 = now;
+  const names = { HR: '', LONG: '大きい当たり！', HIT: 'ヒット！', FLY: 'フライ', GROUND: 'ゴロ', POP: 'ポップフライ', FOUL: 'ファウル' };
+  infoEl.textContent = `${pitch.name}　${speed} km/h`;
+  if (kind !== 'HR') say(names[kind], '', kind === 'HIT' || kind === 'LONG' ? '#7fe0ff' : kind === 'FOUL' ? '#ddd' : '#ffb070');
+}
+canvas.addEventListener('pointerdown', e => { e.preventDefault(); swing(); });
+document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); swing(); } });
+
+// ---------------- カメラ ----------------
+const CAMS = [
+  { name: 'キャッチャー目線', pos: new V3(-0.35, 2.2, -5.0), look: new V3(0.2, 0.55, 12) },
+  { name: 'ななめ後ろ',     pos: new V3(-6.5, 3.2, -7), look: new V3(0.6, 1.0, 8) },
+  { name: '投手の後ろ',     pos: new V3(-0.9, 2.6, 24.5), look: new V3(0, 0.9, 0) },
+];
+let camIndex = 0;
+const camBtn = document.getElementById('camBtn');
+camBtn.addEventListener('click', e => { e.stopPropagation(); camIndex = (camIndex + 1) % CAMS.length; camBtn.textContent = 'カメラ：' + CAMS[camIndex].name; });
+camBtn.addEventListener('pointerdown', e => e.stopPropagation());
+const camPos = CAMS[0].pos.clone(), camLook = CAMS[0].look.clone();
+
+// ---------------- 毎フレーム ----------------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+
+  // 流れ
+  if (state === 'ready' && now - t0 > 1200) newPitch();
+  if (state === 'windup' && now - t0 > WINDUP) { state = 'pitch'; t0 += WINDUP; }
+  if (state === 'pitch') {
+    const p = (now - t0) / travel;
+    if (p > 1.15) {
+      infoEl.textContent = `${pitch.name}　${speed} km/h`;
+      if (swingAt !== null) say('空振り', '', '#ff8080');
+      else if (inZone) say('ストライク', '', '#ff8080');
+      else say('ボール', '', '#9fe');
+      state = 'result'; t0 = now;
+    }
+  }
+  if (state === 'result' && now - t0 > 1500) { state = 'ready'; t0 = now; }
+
+  // ボール
+  if (state === 'windup') { ballMesh.visible = true; ballMesh.position.copy(pitcherToWorld(pitcherPoseNow(now).handB)); }
+  else if (state === 'pitch') { ballMesh.visible = true; ballMesh.position.copy(pitchPos((now - t0) / travel)); }
+  else if (state === 'flight' && hit) {
+    // 打球：重力で放物線、地面ではねる
+    const steps = 4;
+    for (let i = 0; i < steps; i++) {
+      const h = dt / steps;
+      hit.vel.y -= 9.8 * h;
+      hit.pos.addScaledVector(hit.vel, h);
+      const dist = Math.hypot(hit.pos.x, hit.pos.z);
+      if (!hit.landed && dist > fenceR && Math.abs(Math.atan2(hit.pos.x, hit.pos.z)) < Math.PI / 4) {
+        if (hit.pos.y > 3.2) { hit.landed = 'HR'; say('ホームラン！！', 'スタンドへ！', '#ffd23f'); }
+        else { hit.vel.x *= -0.3; hit.vel.z *= -0.3; }
+      }
+      if (hit.pos.y < 0.06) {
+        hit.pos.y = 0.06;
+        if (!hit.landed && hit.kind !== 'FOUL' && Math.abs(Math.atan2(hit.pos.x, hit.pos.z)) > Math.PI / 4 + 0.02) { hit.landed = 'FOUL'; say('ファウル', '', '#ddd'); }
+        hit.landed = hit.landed || 'ground';
+        hit.vel.y = -hit.vel.y * 0.35; hit.vel.x *= 0.7; hit.vel.z *= 0.7;
+      }
+    }
+    ballMesh.visible = true; ballMesh.position.copy(hit.pos);
+    const sp = hit.vel.length();
+    if (now - t0 > 6000 || (hit.landed && sp < 1.5) || hit.pos.length() > 160) { state = 'ready'; t0 = now; hit = null; }
+  } else ballMesh.visible = state === 'result';
+  ballShadow.visible = ballMesh.visible;
+  ballShadow.position.set(ballMesh.position.x, 0.05, ballMesh.position.z);
+
+  // 人形
+  const bp = batterPoseNow(now);
+  const bw = {};
+  for (const k in bp) if (k !== 'bat') bw[k] = batterToWorld(bp[k]);
+  bw.handA = bw.hand; bw.handB = bw.hand;
+  applyPose(batter, bw, new V3(-1, 0, 0.15).normalize());
+  const bd = new V3(-bp.bat[0], bp.bat[1], bp.bat[2]).normalize();
+  bat.position.copy(bw.hand).addScaledVector(bd, 0.36);
+  bat.quaternion.setFromUnitVectors(UP, bd);
+  const pp = pitcherPoseNow(now);
+  const pw = {};
+  for (const k in pp) pw[k] = pitcherToWorld(pp[k]);
+  applyPose(pitcher, pw, new V3(0, 0, -1));
+
+  // カメラ：打ったらボールを追いかける
+  let wantPos = CAMS[camIndex].pos, wantLook = CAMS[camIndex].look;
+  if (state === 'flight' && hit) {
+    const b = hit.pos;
+    wantLook = b.clone();
+    wantPos = new V3(b.x * 0.35, Math.max(6, b.y * 0.5 + 6), Math.min(b.z - 22, -8));
+  }
+  const k = 1 - Math.pow(0.0015, dt);
+  camPos.lerp(wantPos, state === 'flight' ? k * 0.6 : k);
+  camLook.lerp(wantLook, state === 'flight' ? k * 1.5 : k);
+  camera.position.copy(camPos); camera.lookAt(camLook);
+  zoneGroup.visible = state !== 'flight';
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
