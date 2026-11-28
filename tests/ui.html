@@ -24,12 +24,13 @@
 <div id="summary">テスト中…</div>
 <div class="wrap">
   <table id="results"></table>
-  <iframe id="game" src="../index.html"></iframe>
+  <iframe id="game"></iframe>
 </div>
 
 <script>
 const results = [];
 const frame = document.getElementById('game');
+frame.src = '../index.html?t=' + Date.now();   // いつも最新のゲームを開く（古いものが残っていると正しく確かめられない）
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 // 見えているボタン全部について、ボタンの真ん中に「指を置いたら何に当たるか」を調べる
@@ -57,6 +58,7 @@ function tapButton(id) {
 function check(name, ok, detail = '') { results.push({ name, ok, detail }); }
 
 (async () => {
+ try {
   await new Promise(r => frame.addEventListener('load', r, { once: true }));
   await wait(1500);
   const g = frame.contentWindow;
@@ -100,6 +102,9 @@ function check(name, ok, detail = '') { results.push({ name, ok, detail }); }
   checkButtons('投手の番');
   check('球種「フォーク」を指で押せる', tapButton('フォーク'));
   check('ゲームの中でエラーが出ていない', err.length === 0, err.join(' / '));
+ } catch (e) {
+  check('テストが最後まで進む', false, 'とちゅうで止まった：' + e.message);
+ }
 
   const table = document.getElementById('results');
   for (const r of results) {
