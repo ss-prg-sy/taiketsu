@@ -155,7 +155,7 @@ function buildBackground() {
   g.fillStyle = gr; g.fillRect(166, 176, 92, 32);
   g.strokeStyle = 'rgba(255,255,255,.06)'; g.lineWidth = 1;
   for (let xx = 170; xx < 258; xx += 8) { g.beginPath(); g.moveTo(xx, 177); g.lineTo(xx, 207); g.stroke(); }
-  for (const [fx, f1, f2] of [[197, '#f4f4f4', '#d23b3b'], [211, '#3f7de8', '#3f7de8'], [227, '#2f6fd8', '#2f6fd8']]) {
+  for (const { fx, f1, f2 } of [{ fx: 197, f1: '#f4f4f4', f2: '#d23b3b' }, { fx: 211, f1: '#3f7de8', f2: '#3f7de8' }, { fx: 227, f1: '#2f6fd8', f2: '#2f6fd8' }]) {
     g.fillStyle = '#d9dcea'; g.fillRect(fx, 150, 1.2, 27);
     g.fillStyle = f1; g.fillRect(fx + 1.2, 151, 9, 6);
     if (f1 !== f2) { g.fillStyle = f2; g.beginPath(); g.arc(fx + 5.7, 154, 1.7, 0, Math.PI * 2); g.fill(); }
@@ -439,9 +439,9 @@ function drawAimGuide() {
 
 // この打席の配球（球種ごとの色の点＋何球目か）
 function drawHistory() {
-  history.forEach((h, i) => {
+  pitchLog.forEach((h, i) => {
     if (!h.done) return;
-    const last = i === history.length - 1;
+    const last = i === pitchLog.length - 1;
     ctx.fillStyle = PCOLORS[h.pi];
     ctx.globalAlpha = last ? 1 : 0.8;
     ctx.beginPath(); ctx.arc(h.x, h.y, 8, 0, Math.PI * 2); ctx.fill();
@@ -451,7 +451,7 @@ function drawHistory() {
     ctx.fillStyle = '#11152e';
     ctx.font = 'bold 10px system-ui, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(i + 1, h.x, h.y + 0.5);
+    ctx.fillText(String(i + 1), h.x, h.y + 0.5);
   });
 }
 
@@ -512,8 +512,7 @@ function drawCount() {
   if (state === 'menu') return;
   const x = batterHand === 'L' ? 27 : 307, y = 322, w = 86, h = 72;   // 打者と重ならない側に出す
   glossPanel(x, y, w, h, 10);
-  const rows = [['B', balls, 3, '#3ddc84'], ['S', strikes, 2, '#ffd23f'], ['O', outs, 2, '#ff4d4d']];
-  rows.forEach(([label, n, max, col], i) => {
+  countRows().forEach(({ label, n, max, col }, i) => {
     const ry = y + 14 + i * 22;
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 16px system-ui, sans-serif';

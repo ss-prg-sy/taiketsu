@@ -14,7 +14,7 @@ let state = 'menu';
 let guess = -1;           // バッターの狙い球（-1＝狙わない）
 let waitSpot = null;      // バッターが待つコース（null＝張らない）
 const WAIT_NEAR = 31, WAIT_FAR = 62;   // この近さなら「読み的中」、これより遠いと「ハズレ」
-let history = [];         // この打席で投げた球の記録
+let pitchLog = [];        // この打席で投げた球の記録（※ history はブラウザに元からある名前なので使わない）
 const PCOLORS = ['#ffffff', '#4fd8ff', '#5ee07a', '#ff6bd5', '#ffa23f'];   // 球種ごとの色
 let pitch = PITCHES[0], speed = 0, travel = 1000, phaseStart = 0;
 let aim = { x: HIT.x, y: HIT.y }, inZone = true, corner = false;
@@ -80,4 +80,12 @@ function batTeam() { return half; }
 function fieldTeam() { return 1 - half; }
 function humanBats() { return mode === 2 || half === 0; }
 function humanPitches() { return mode === 2 || half === 1; }
+// B・S・O のランプ（文字・今の数・ランプの数・色）
+function countRows() {
+  return [
+    { label: 'B', n: balls, max: 3, col: '#3ddc84' },
+    { label: 'S', n: strikes, max: 2, col: '#ffd23f' },
+    { label: 'O', n: outs, max: 2, col: '#ff4d4d' },
+  ];
+}
 function show(id, on) { document.getElementById(id).classList.toggle('hidden', !on); }

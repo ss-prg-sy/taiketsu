@@ -1,0 +1,15 @@
+{
+  // VS Code と「npm run check」が、js フォルダのコードの書きまちがいを探すための設定
+  // （型をきっちり書くモード＝strict は使わず、ふつうの JavaScript のチェックだけにする）
+  "compilerOptions": {
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "target": "es2022",
+    "lib": ["es2022", "dom", "dom.iterable"]
+  },
+  "include": ["js/**/*.js"]
+}

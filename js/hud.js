@@ -22,7 +22,7 @@ function drawBoard() {
     ctx.textAlign = 'right';
     ctx.fillStyle = '#ffd23f';
     ctx.font = 'bold 24px system-ui, sans-serif';
-    ctx.fillText(runs[t], x + 120, ry + 1);
+    ctx.fillText(String(runs[t]), x + 120, ry + 1);
   }
   ctx.strokeStyle = 'rgba(201,211,255,.35)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(x + 24, y + 31); ctx.lineTo(x + 122, y + 31); ctx.stroke();
@@ -36,9 +36,8 @@ function drawBoard() {
   ctx.font = 'bold 15px system-ui, sans-serif';
   ctx.fillText(`${inning}回${half === 0 ? '表' : '裏'}`, x + 143, y + 13);
   // B S O
-  const rows = [['B', balls, 3, '#3ddc84'], ['S', strikes, 2, '#ffd23f'], ['O', outs, 2, '#ff4d4d']];
   ctx.font = 'bold 10px system-ui, sans-serif';
-  rows.forEach(([label, n, max, col], i) => {
+  countRows().forEach(({ label, n, max, col }, i) => {
     const ry = y + 29 + i * 11;
     ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
     ctx.fillText(label, x + 143, ry + 0.5);

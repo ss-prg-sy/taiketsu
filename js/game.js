@@ -16,7 +16,7 @@ function startHalf(h) {
   half = h;
   outs = 1; bases = [true, true, false];   // 1アウト 1塁・2塁からスタート
   balls = 0; strikes = 0;
-  batterDone = false; flight = null; msg = ''; history = [];
+  batterDone = false; flight = null; msg = ''; pitchLog = [];
   newBatter();
   state = 'intro';
   show('panel', false); show('guessPanel', false);
@@ -79,7 +79,7 @@ function cpuGuess() {
   // 待つコース：半分くらいは張る。前の球と同じあたりを待つことも多い
   waitSpot = null;
   if (Math.random() < 0.55) {
-    const last = history[history.length - 1];
+    const last = pitchLog[pitchLog.length - 1];
     if (last && Math.random() < 0.4) waitSpot = { x: last.x, y: last.y };
     else waitSpot = { x: HIT.x + rand(-0.4, 0.4) * ZW, y: HIT.y + rand(-0.4, 0.4) * ZH };
   }
@@ -183,7 +183,7 @@ function startWindup() {
   phaseStart = performance.now() + (humanPitches() ? 0 : rand(0, 400));
   lastTrail = null;
   if (!humanBats()) { guess = cpuGuess(); cpuDecideSwing(); }
-  history.push({ x: aim.x, y: aim.y, pi: PITCHES.indexOf(pitch), done: false });
+  pitchLog.push({ x: aim.x, y: aim.y, pi: PITCHES.indexOf(pitch), done: false });
 }
 
 // CPUバッターが振るかどうか・どのタイミングで振るか
@@ -266,20 +266,20 @@ function inPlay(kind, diff, from) {
     case 'HR':
       if (b1) mv.push([1, 4]); if (b2) mv.push([2, 4]); if (b3) mv.push([3, 4]);
       mv.push([0, 4]);
-      r = 1 + b1 + b2 + b3;
+      r = 1 + Number(b1) + Number(b2) + Number(b3);
       bases = [false, false, false];
       title = 'ホームラン！！'; sub = `${OF_NAME[ofi]}スタンドへ`; col = '#ffd23f';
       break;
     case '3B':
       if (b1) mv.push([1, 4]); if (b2) mv.push([2, 4]); if (b3) mv.push([3, 4]);
       mv.push([0, 3]);
-      r = b1 + b2 + b3;
+      r = Number(b1) + Number(b2) + Number(b3);
       bases = [false, false, true];
       title = 'スリーベース！';
       break;
     case '2B': {
       if (b3) mv.push([3, 4]); if (b2) mv.push([2, 4]);
-      r = b2 + b3;
+      r = Number(b2) + Number(b3);
       let n3 = false;
       if (b1) { if (chance(0.4)) { r++; mv.push([1, 4]); } else { n3 = true; mv.push([1, 3]); } }
       mv.push([0, 2]);
@@ -495,7 +495,7 @@ function addBall() {
 function showResult(m, sub, col, dur) {
   msg = m; msgSub = sub; msgColor = col;
   msgAt = 0;
-  if (history.length) history[history.length - 1].done = true;
+  if (pitchLog.length) pitchLog[pitchLog.length - 1].done = true;
   resultDur = dur;
   state = 'result';
   phaseStart = performance.now();
@@ -512,7 +512,7 @@ function finishPlay() {
     startHalf(0);
     return;
   }
-  if (batterDone) { balls = 0; strikes = 0; batterDone = false; history = []; newBatter(); }
+  if (batterDone) { balls = 0; strikes = 0; batterDone = false; pitchLog = []; newBatter(); }
   nextPitch();
 }
 

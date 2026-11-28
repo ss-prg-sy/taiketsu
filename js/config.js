@@ -3,7 +3,7 @@
 // =====================================================
 //  設定
 // =====================================================
-const cv = document.getElementById('c');
+const cv = /** @type {HTMLCanvasElement} */ (document.getElementById('c'));
 const ctx = cv.getContext('2d');
 const W = 420, H = 640;
 // 対決の画面の配置（UIイメージの画像に合わせた位置）

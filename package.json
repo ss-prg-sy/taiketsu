@@ -1,0 +1,11 @@
+{
+  "name": "taiketsu",
+  "private": true,
+  "description": "1イニング対決：投手と打者の読み合い野球ゲーム",
+  "scripts": {
+    "check": "tsc -p jsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
