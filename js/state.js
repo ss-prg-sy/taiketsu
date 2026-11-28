@@ -33,6 +33,7 @@ function pitHand() { return pitcherHand[fieldTeam()]; }
 function handName(h, kind) { return (h === 'R' ? '右' : '左') + kind; }
 let lastTrail = null;     // 直前の投球の通り道
 let hitFlash = null;      // 打った瞬間の光
+let swingBase = null;     // 振り始めた瞬間の打者のポーズ（ここからスイングの動きにつなぐ）
 
 // 打ったあとの「引きのカメラ」用
 let play = null;          // 打球・守備・ランナーの動き

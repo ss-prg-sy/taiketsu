@@ -37,7 +37,7 @@ function startHalf(h) {
 }
 
 function nextPitch() {
-  swingAt = null; swungMiss = false; cpuSwingAt = null;
+  swingAt = null; swungMiss = false; cpuSwingAt = null; swingBase = null;
   flight = null; msg = ''; msgSub = '';
   guess = -1; waitSpot = null;
   selectGuess(-1);
@@ -209,6 +209,7 @@ function humanSwing() {
 
 function doSwing(t) {
   if (swingAt !== null) return;
+  swingBase = batterBasePose(t);      // 振り始めの体の形を覚えておく（ここからスイングにつなぐ）
   swingAt = t;
   if (state === 'windup') { swungMiss = true; return; }   // 投げる前に振った
   const diff = t - (phaseStart + travel);
