@@ -418,7 +418,10 @@ function render3D(now) {
   if (ballPos) ballShadow3.position.set(ballPos.x, 0.05, ballPos.z);
 
   // カメラ：対決はキャッチャー目線、打ったらボールを追いかける
-  let wantPos = CAM_DUEL.pos, wantLook = CAM_DUEL.look;
+  // 左打ちのときはカメラを左右反対の位置に置く（右打ちとまったく同じ見え方になるように）
+  const hs3 = batterHand === 'L' ? -1 : 1;
+  let wantPos = new V3(hs3 * CAM_DUEL.pos.x, CAM_DUEL.pos.y, CAM_DUEL.pos.z);
+  let wantLook = new V3(hs3 * CAM_DUEL.look.x, CAM_DUEL.look.y, CAM_DUEL.look.z);
   if (replay && ballPos) {
     // テレビ中継のように、ホームの後ろの高いところから。ボールより少し下を見て、グラウンド（野手・走者）も入れる
     wantLook = new V3(ballPos.x * 0.8, ballPos.y * 0.35, Math.max(14, ballPos.z * 0.85));
